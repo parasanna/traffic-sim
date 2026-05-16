@@ -1,6 +1,7 @@
 """
-Transient Vehicle: Represents passing-through traffic (P2).
-Enters and exits via R1 roads, never parks.
+Transient Vehicle (Διερχόμενο Όχημα): Αντιπροσωπεύει τη διερχόμενη κυκλοφορία (P2).
+Τα οχήματα αυτά μπαίνουν από την άκρη του χάρτη (R1 είσοδοι), διασχίζουν την πόλη
+και βγαίνουν από την άλλη πλευρά (R1 έξοδοι). Δεν παρκάρουν ποτέ.
 """
 import random
 from typing import Optional, Tuple, List
@@ -11,41 +12,44 @@ from agents.base_agent import BaseVehicle, VehicleState, VehicleType
 
 class TransientVehicle(BaseVehicle):
     """
-    Transient (P2) vehicle agent.
+    Όχημα Διερχόμενου Πληθυσμού (P2).
     
-    Behavior:
-    - Enters the area from R1 entry points at the border
-    - Travels through the area, mainly using R1 roads
-    - Exits from R1 exit points at the border
-    - NEVER parks
-    - Primarily uses R1, may use other roads in emergencies
+    Συμπεριφορά:
+    - Μπαίνει στην περιοχή από τα σημεία εισόδου των μεγάλων δρόμων (R1) στα όρια του χάρτη.
+    - Διασχίζει την περιοχή χρησιμοποιώντας κυρίως τους δρόμους R1 (λεωφόρους).
+    - Αποχωρεί από τα σημεία εξόδου R1 στα όρια του χάρτη.
+    - ΠΟΤΕ δεν παρκάρει.
+    - Σε περιπτώσεις ανάγκης (π.χ. μποτιλιάρισμα), μπορεί να χρησιμοποιήσει στενότερους δρόμους.
     """
 
     def __init__(self, world: GridWorld, pathfinder: Pathfinder,
                  rng: random.Random):
         super().__init__(world, VehicleType.TRANSIENT, pathfinder, rng)
-        self.entry_point: Optional[Tuple[int, int]] = None
-        self.exit_point: Optional[Tuple[int, int]] = None
+        self.entry_point: Optional[Tuple[int, int]] = None  # Σημείο Εισόδου
+        self.exit_point: Optional[Tuple[int, int]] = None   # Σημείο Εξόδου
 
     def decide_action(self, current_tick: int, current_hour: int):
-        """Transient vehicles are always moving toward exit."""
+        """
+        Τα διερχόμενα οχήματα βρίσκονται πάντα σε κίνηση προς την έξοδο.
+        Ελέγχει απλά αν πρέπει να υπολογίσει νέα διαδρομή.
+        """
         if self.state == VehicleState.MOVING:
-            return  # Already moving
+            return  # Ήδη οδηγεί προς τα έξω
 
         if self.state in (VehicleState.BROKEN_DOWN, VehicleState.IN_ACCIDENT):
-            return
+            return  # Δεν μπορεί να κάνει τίποτα
 
         if self.state == VehicleState.IDLE and self.position:
-            # If idle with no path, try to find exit
+            # Αν κάθεται άπραγο και δεν έχει διαδρομή, προσπαθεί να βρει δρόμο για την έξοδο
             if not self.current_path or self.path_index >= len(self.current_path):
                 self._navigate_to_exit()
 
     def spawn_at_entry(self) -> bool:
-        """Spawn at a random R1 entry point."""
+        """Εμφάνιση (Spawn) σε ένα τυχαίο σημείο εισόδου (R1) στα όρια της πόλης."""
         if not self.world.border_entries:
             return False
 
-        # Try multiple entry points
+        # Δοκιμάζει τυχαία σημεία εισόδου μέχρι να βρει κάποιο ελεύθερο (που να μην έχει άλλο αμάξι)
         entries = list(self.world.border_entries)
         self.rng.shuffle(entries)
 
@@ -53,7 +57,7 @@ class TransientVehicle(BaseVehicle):
             if self.spawn(entry):
                 self.entry_point = entry
                 self.origin = entry
-                # Find an exit point (different from entry)
+                # Μόλις μπει, διαλέγει αμέσως από ποια έξοδο θα βγει
                 self._select_exit_point()
                 if self.exit_point:
                     self.start_journey(self.exit_point, "TRANSIT")
@@ -62,32 +66,32 @@ class TransientVehicle(BaseVehicle):
         return False
 
     def _select_exit_point(self):
-        """Select an exit point, preferring one far from entry."""
+        """Επιλέγει ένα σημείο εξόδου, προτιμώντας συνήθως ένα που είναι μακριά από την είσοδο."""
         if not self.world.border_exits or not self.entry_point:
             return
 
         exits = list(self.world.border_exits)
-        # Prefer exits far from entry point
+        # Ταξινομεί τις εξόδους έτσι ώστε οι πιο μακρινές (Manhattan distance) να είναι πρώτες
         exits.sort(key=lambda e: -(abs(e[0] - self.entry_point[0]) +
                                      abs(e[1] - self.entry_point[1])))
 
-        # Pick from top choices with some randomness
+        # Διαλέγει μια τυχαία έξοδο από το 33% των πιο μακρινών εξόδων (για ποικιλία)
         top_n = max(1, len(exits) // 3)
         self.exit_point = self.rng.choice(exits[:top_n])
         self.destination = self.exit_point
 
     def _navigate_to_exit(self):
-        """Try to navigate to the assigned exit point."""
+        """Προσπαθεί να βρει διαδρομή προς την επιλεγμένη έξοδο."""
         if not self.exit_point:
             self._select_exit_point()
         if self.exit_point:
             if not self.start_journey(self.exit_point, "TRANSIT"):
-                # Failed to find path, try another exit
+                # Αν απέτυχε να βρει δρόμο, δοκιμάζει να διαλέξει άλλη έξοδο
                 self._select_exit_point()
                 if self.exit_point:
                     self.start_journey(self.exit_point, "TRANSIT")
 
     def on_arrival(self):
-        """Transient vehicle reached exit - despawn."""
+        """Καλείται όταν το όχημα φτάσει στην έξοδο - Εξαφανίζεται (Despawn) από τον χάρτη."""
         self.despawn()
         self.state = VehicleState.DESPAWNED

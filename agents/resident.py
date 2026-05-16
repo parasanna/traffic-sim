@@ -1,6 +1,6 @@
 """
-Resident Vehicle: Represents permanent population (P1) vehicles.
-Follows daily activity patterns based on time zones.
+Resident Vehicle (Μόνιμος Κάτοικος): Αντιπροσωπεύει τα οχήματα του μόνιμου πληθυσμού (P1).
+Ακολουθεί καθημερινά μοτίβα δραστηριοτήτων (π.χ. Σπίτι -> Δουλειά -> Σπίτι) ανάλογα με τη ζώνη ώρας.
 """
 import random
 from typing import Optional, Tuple, List
@@ -9,152 +9,152 @@ from pathfinding import Pathfinder
 from agents.base_agent import BaseVehicle, VehicleState, VehicleType
 
 
-# Mapping from transition codes to (source_category, dest_category, purpose)
+# Χάρτης Μεταβάσεων: Κωδικός -> (Κατηγορία_Αφετηρίας, Κατηγορία_Προορισμού, Σκοπός)
 TRANSITION_MAP = {
-    "Res->Off(W)": (BlockCategory.RESIDENTIAL, BlockCategory.OFFICE, "WORK"),
-    "Res->Mar(W)": (BlockCategory.RESIDENTIAL, BlockCategory.MARKET, "WORK"),
-    "Res->Lei(W)": (BlockCategory.RESIDENTIAL, BlockCategory.LEISURE, "WORK"),
-    "Res->Oth(W)": (BlockCategory.RESIDENTIAL, BlockCategory.OTHER, "WORK"),
-    "Res->Mar(F)": (BlockCategory.RESIDENTIAL, BlockCategory.MARKET, "FOOD"),
-    "Res->Oth(O)": (BlockCategory.RESIDENTIAL, BlockCategory.OTHER, "OTHER"),
-    "Off->Oth(O)": (BlockCategory.OFFICE, BlockCategory.OTHER, "OTHER"),
-    "Res->Lei(L)": (BlockCategory.RESIDENTIAL, BlockCategory.LEISURE, "LEISURE"),
-    "Off->Lei(L)": (BlockCategory.OFFICE, BlockCategory.LEISURE, "LEISURE"),
-    "Mar->Lei(L)": (BlockCategory.MARKET, BlockCategory.LEISURE, "LEISURE"),
-    "Oth->Lei(L)": (BlockCategory.OTHER, BlockCategory.LEISURE, "LEISURE"),
-    "Mar->Oth(O)": (BlockCategory.MARKET, BlockCategory.OTHER, "OTHER"),
-    "Lei->Oth(O)": (BlockCategory.LEISURE, BlockCategory.OTHER, "OTHER"),
-    "Off->Res(S)": (BlockCategory.OFFICE, BlockCategory.RESIDENTIAL, "SLEEP"),
-    "Mar->Res(S)": (BlockCategory.MARKET, BlockCategory.RESIDENTIAL, "SLEEP"),
-    "Lei->Res(S)": (BlockCategory.LEISURE, BlockCategory.RESIDENTIAL, "SLEEP"),
-    "Oth->Res(S)": (BlockCategory.OTHER, BlockCategory.RESIDENTIAL, "SLEEP"),
+    "Res->Off(W)": (BlockCategory.RESIDENTIAL, BlockCategory.OFFICE, "WORK"), # Σπίτι -> Γραφείο (Δουλειά)
+    "Res->Mar(W)": (BlockCategory.RESIDENTIAL, BlockCategory.MARKET, "WORK"), # Σπίτι -> Αγορά (Δουλειά)
+    "Res->Lei(W)": (BlockCategory.RESIDENTIAL, BlockCategory.LEISURE, "WORK"), # Σπίτι -> Διασκέδαση (Δουλειά)
+    "Res->Oth(W)": (BlockCategory.RESIDENTIAL, BlockCategory.OTHER, "WORK"), # Σπίτι -> Άλλο (Δουλειά)
+    "Res->Mar(F)": (BlockCategory.RESIDENTIAL, BlockCategory.MARKET, "FOOD"), # Σπίτι -> Αγορά (Ψώνια)
+    "Res->Oth(O)": (BlockCategory.RESIDENTIAL, BlockCategory.OTHER, "OTHER"), # Σπίτι -> Άλλο (Διάφορα)
+    "Off->Oth(O)": (BlockCategory.OFFICE, BlockCategory.OTHER, "OTHER"), # Γραφείο -> Άλλο (Διάφορα)
+    "Res->Lei(L)": (BlockCategory.RESIDENTIAL, BlockCategory.LEISURE, "LEISURE"), # Σπίτι -> Διασκέδαση
+    "Off->Lei(L)": (BlockCategory.OFFICE, BlockCategory.LEISURE, "LEISURE"), # Γραφείο -> Διασκέδαση
+    "Mar->Lei(L)": (BlockCategory.MARKET, BlockCategory.LEISURE, "LEISURE"), # Αγορά -> Διασκέδαση
+    "Oth->Lei(L)": (BlockCategory.OTHER, BlockCategory.LEISURE, "LEISURE"), # Άλλο -> Διασκέδαση
+    "Mar->Oth(O)": (BlockCategory.MARKET, BlockCategory.OTHER, "OTHER"), # Αγορά -> Άλλο
+    "Lei->Oth(O)": (BlockCategory.LEISURE, BlockCategory.OTHER, "OTHER"), # Διασκέδαση -> Άλλο
+    "Off->Res(S)": (BlockCategory.OFFICE, BlockCategory.RESIDENTIAL, "SLEEP"), # Γραφείο -> Σπίτι (Ύπνος)
+    "Mar->Res(S)": (BlockCategory.MARKET, BlockCategory.RESIDENTIAL, "SLEEP"), # Αγορά -> Σπίτι (Ύπνος)
+    "Lei->Res(S)": (BlockCategory.LEISURE, BlockCategory.RESIDENTIAL, "SLEEP"), # Διασκέδαση -> Σπίτι (Ύπνος)
+    "Oth->Res(S)": (BlockCategory.OTHER, BlockCategory.RESIDENTIAL, "SLEEP"), # Άλλο -> Σπίτι (Ύπνος)
 }
 
 
 class ResidentVehicle(BaseVehicle):
     """
-    Resident (P1) vehicle agent.
+    Όχημα Μόνιμου Κατοίκου (P1).
     
-    Behavior:
-    - Always starts and ends journeys at building blocks
-    - Follows daily activity patterns (WORK, FOOD, LEISURE, SLEEP)
-    - Parks inside blocks (disappears from road)
-    - Never leaves the simulation area
+    Συμπεριφορά:
+    - Ξεκινάει και καταλήγει πάντα σε Οικοδομικά Τετράγωνα (κτίρια).
+    - Ακολουθεί καθημερινό πρόγραμμα (ΔΟΥΛΕΙΑ, ΦΑΓΗΤΟ, ΔΙΑΣΚΕΔΑΣΗ, ΥΠΝΟΣ).
+    - Όταν φτάνει στον προορισμό του, παρκάρει μέσα στο κτίριο (εξαφανίζεται από το δρόμο).
+    - Δεν φεύγει ποτέ εκτός του χάρτη της πόλης.
     """
 
     def __init__(self, world: GridWorld, pathfinder: Pathfinder,
                  rng: random.Random):
         super().__init__(world, VehicleType.RESIDENT, pathfinder, rng)
-        self.home_block: Optional[BuildingBlock] = None
-        self.current_block: Optional[BuildingBlock] = None
-        self.activity: str = "SLEEP"  # Current activity
-        self.trips_this_zone: int = 0
-        self.max_trips_per_zone: int = 3  # Allow multiple trips per zone
-        self.idle_ticks: int = 0
-        self.min_idle_before_trip: int = 5  # Min ticks parked before next trip
+        self.home_block: Optional[BuildingBlock] = None       # Το "Σπίτι" του
+        self.current_block: Optional[BuildingBlock] = None    # Το κτίριο που βρίσκεται τώρα
+        self.activity: str = "SLEEP"                          # Η τρέχουσα δραστηριότητα (π.χ. Υπνος)
+        self.trips_this_zone: int = 0                         # Πόσα ταξίδια έκανε σε αυτή τη ζώνη
+        self.max_trips_per_zone: int = 3                      # Μέγιστα επιτρεπτά ταξίδια ανά ζώνη ώρας
+        self.idle_ticks: int = 0                              # Πόση ώρα περιμένει παρκαρισμένος
+        self.min_idle_before_trip: int = 5                    # Ελάχιστος χρόνος παραμονής (ticks) πριν ξαναβγεί
 
     def assign_home(self, block: BuildingBlock):
-        """Assign a home (residential) block to this resident."""
+        """Ορίζει ένα σπίτι (Residential block) για αυτόν τον κάτοικο."""
         self.home_block = block
         self.current_block = block
 
     def decide_action(self, current_tick: int, current_hour: int):
         """
-        Decide whether to start a trip based on current time zone.
-        Uses the traffic probability tables to determine transitions.
+        Αποφασίζει αν θα ξεκινήσει ένα νέο ταξίδι, βάσει της τρέχουσας ώρας.
+        Χρησιμοποιεί τον πίνακα πιθανοτήτων μεταβάσεων από το config.
         """
         if self.state == VehicleState.MOVING:
-            return  # Already moving
+            return  # Ήδη οδηγεί, δεν κάνει κάτι νέο
 
         if self.state in (VehicleState.BROKEN_DOWN, VehicleState.IN_ACCIDENT):
-            return  # Can't move
+            return  # Έχει βλάβη/ατύχημα, δεν μπορεί να κουνηθεί
 
-        # Count idle time when parked
+        # Μετράει πόσο χρόνο έχει μείνει παρκαρισμένος
         if self.state == VehicleState.PARKED:
             self.idle_ticks += 1
             if self.idle_ticks < self.min_idle_before_trip:
-                return  # Wait before next trip
+                return  # Περιμένει λίγο πριν ξαναφύγει
 
         if self.trips_this_zone >= self.max_trips_per_zone:
-            return  # Max trips reached for this zone
+            return  # Έκανε ήδη αρκετά ταξίδια για αυτή τη ζώνη της ημέρας
 
-        # Find current zone
+        # Βρίσκει σε ποια ζώνη (zone) είμαστε τώρα (π.χ. 06:00 - 09:00)
         zone = self._get_current_zone(current_hour)
         if not zone:
             return
 
-        # Boost: each tick has a chance to start a trip
-        # Use a per-tick probability derived from zone probability
-        per_tick_boost = 0.15  # 15% chance each tick to try a transition
+        # Πιθανότητα (ανά tick) να δοκιμάσει να κάνει ένα ταξίδι
+        per_tick_boost = 0.15  # 15% πιθανότητα
         if self.rng.random() > per_tick_boost:
             return
 
-        # Check each possible transition for this zone
+        # Ελέγχει όλες τις πιθανές μεταβάσεις (transitions) για αυτή τη ζώνη
         for transition_code, probability in zone.transitions.items():
             if transition_code not in TRANSITION_MAP:
                 continue
 
             source_cat, dest_cat, purpose = TRANSITION_MAP[transition_code]
 
-            # Check if we're at the right source
+            # Ελέγχει αν το τρέχον κτίριό του ταιριάζει με την Αφετηρία (Source)
             if self.current_block and self.current_block.category != source_cat:
                 continue
 
-            # Roll probability (boosted 3x for more visible traffic)
+            # "Ρίχνει το ζάρι" με βάση την πιθανότητα (x3 για να υπάρχει πιο πυκνή κίνηση)
             if self.rng.random() < probability * 3.0:
-                # Find destination block
+                # Βρίσκει ένα τυχαίο κτίριο-προορισμό με τη σωστή κατηγορία
                 dest_block = self.world.get_random_block(dest_cat)
                 if dest_block and dest_block.block_id != (
                         self.current_block.block_id if self.current_block else -1):
+                    # Ξεκινάει το ταξίδι
                     self._start_block_trip(dest_block, purpose)
                     self.trips_this_zone += 1
                     self.idle_ticks = 0
                     return
 
     def _start_block_trip(self, dest_block: BuildingBlock, purpose: str):
-        """Start a trip from current block to destination block."""
+        """Ξεκινάει το ταξίδι από το τρέχον κτίριο στο κτίριο-προορισμό."""
         if not self.current_block:
             return
 
-        # Spawn at current block's entry point
+        # Εμφάνιση (Spawn) του οχήματος στην "πόρτα" (entry point) του κτιρίου του
         entry = self.current_block.entry_point
         if self.spawn(entry):
-            # Navigate to destination block's entry point
+            # Υπολογισμός διαδρομής (Navigation) προς την πόρτα του προορισμού
             dest_entry = dest_block.entry_point
             if self.start_journey(dest_entry, purpose):
                 self.activity = purpose
             else:
-                self.despawn()
+                self.despawn() # Αν δεν βρεθεί δρόμος, ξαναπαρκάρει μέσα
 
     def on_arrival(self):
-        """Called when resident reaches destination block."""
+        """Καλείται όταν ο κάτοικος φτάσει στον προορισμό του."""
         if self.destination:
-            # Find which block this destination belongs to
+            # Βρίσκει σε ποιο κτίριο ανήκει αυτή η πόρτα
             dest_cell = self.world.get_cell(self.destination[0], self.destination[1])
             if dest_cell and dest_cell.block:
                 self.current_block = dest_cell.block
             else:
-                # Check nearby blocks
+                # Ψάχνει μήπως είναι σε διπλανό κελί
                 for neighbor in self.world.get_neighbors(self.destination[0],
                                                           self.destination[1]):
                     if neighbor.block:
                         self.current_block = neighbor.block
                         break
 
-        # Park (remove from road)
+        # Παρκάρει (εξαφανίζεται από τον δρόμο για να μην πιάνει χώρο)
         self.despawn()
         self.state = VehicleState.PARKED
 
     def on_zone_change(self):
-        """Called when time zone changes - reset trip counter."""
+        """Καλείται όταν αλλάζει η ζώνη της ώρας - Μηδενίζει τον μετρητή ταξιδιών."""
         self.trips_this_zone = 0
 
     def _get_current_zone(self, current_hour: int):
-        """Get the current traffic zone based on hour."""
+        """Επιστρέφει τη σωστή κυκλοφοριακή ζώνη ανάλογα με την ώρα."""
         for zone in self.world.config.traffic.zones:
             if zone.start_hour <= current_hour < zone.end_hour:
                 return zone
-            # Handle midnight wrap
+            # Χειρισμός της περίπτωσης που η ζώνη περνάει τα μεσάνυχτα (π.χ. 22:00 - 02:00)
             if zone.start_hour > zone.end_hour:
                 if current_hour >= zone.start_hour or current_hour < zone.end_hour:
                     return zone
