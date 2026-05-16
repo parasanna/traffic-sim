@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🏙️ Multi-Agent Traffic Simulation</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-dark: #0a0e1a;
+            --bg-card: #111827;
+            --bg-card-hover: #1f2937;
+            --text-primary: #f0f4ff;
+            --text-secondary: #94a3b8;
+            --accent-blue: #3b82f6;
+            --accent-green: #10b981;
+            --accent-red: #ef4444;
+            --accent-yellow: #f59e0b;
+            --accent-purple: #8b5cf6;
+            --glow-blue: rgba(59, 130, 246, 0.3);
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg-dark);
+            color: var(--text-primary);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #1e1b4b 0%, #0f172a 100%);
+            padding: 16px 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+            box-shadow: 0 4px 30px rgba(0,0,0,0.5);
+        }
+        .header h1 {
+            font-size: 20px;
+            font-weight: 700;
+            background: linear-gradient(135deg, #60a5fa, #a78bfa);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .header-info {
+            display: flex;
+            gap: 20px;
+            align-items: center;
+        }
+        .header-info span {
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+        .header-info .value {
+            color: var(--accent-blue);
+            font-weight: 600;
+        }
+        .main-layout {
+            display: grid;
+            grid-template-columns: 1fr 320px;
+            height: calc(100vh - 60px);
+            gap: 0;
+        }
+        .grid-container {
+            position: relative;
+            overflow: hidden;
+            background: #050810;
+        }
+        #gridCanvas {
+            display: block;
+        }
+        .sidebar {
+            background: var(--bg-card);
+            overflow-y: auto;
+            padding: 16px;
+            border-left: 1px solid rgba(255,255,255,0.05);
+        }
+        .card {
+            background: rgba(30, 41, 59, 0.8);
+            border: 1px solid rgba(255,255,255,0.06);
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 12px;
+            backdrop-filter: blur(10px);
+            transition: all 0.3s ease;
+        }
+        .card:hover {
+            border-color: rgba(59, 130, 246, 0.2);
+            box-shadow: 0 0 20px var(--glow-blue);
+        }
+        .card h3 {
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: var(--text-secondary);
+            margin-bottom: 12px;
+        }
+        .stat-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+        .stat-item {
+            text-align: center;
+            padding: 8px;
+            background: rgba(15, 23, 42, 0.6);
+            border-radius: 8px;
+        }
+        .stat-item .number {
+            font-size: 22px;
+            font-weight: 700;
+            background: linear-gradient(135deg, #60a5fa, #a78bfa);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .stat-item .label {
+            font-size: 10px;
+            color: var(--text-secondary);
+            margin-top: 4px;
+        }
+        .stat-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 6px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.04);
+        }
+        .stat-row:last-child { border-bottom: none; }
+        .stat-row .key { font-size: 12px; color: var(--text-secondary); }
+        .stat-row .val { font-size: 13px; font-weight: 600; }
+        .storm-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 600;
+            background: rgba(239, 68, 68, 0.15);
+            color: var(--accent-red);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
+        }
+        .legend {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 6px;
+            font-size: 11px;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .legend-color {
+            width: 14px;
+            height: 14px;
+            border-radius: 3px;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        .progress-bar {
+            height: 6px;
+            background: rgba(255,255,255,0.06);
+            border-radius: 3px;
+            overflow: hidden;
+            margin-top: 4px;
+        }
+        .progress-fill {
+            height: 100%;
+            border-radius: 3px;
+            transition: width 0.5s ease;
+        }
+        .food-bar .progress-fill { background: linear-gradient(90deg, #f59e0b, #10b981); }
+        .poll-bar .progress-fill { background: linear-gradient(90deg, #6b7280, #ef4444); }
+        .status-dot {
+            width: 8px; height: 8px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 6px;
+        }
+        .status-running { background: var(--accent-green); box-shadow: 0 0 8px var(--accent-green); }
+        .status-stopped { background: var(--accent-red); }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🏙️ Πολυπρακτορικό Σύστημα Κυκλοφορίας</h1>
+        <div class="header-info">
+            <span>Tick: <span class="value" id="hdrTick">0</span></span>
+            <span>Day: <span class="value" id="hdrDay">1</span></span>
+            <span>Zone: <span class="value" id="hdrZone">-</span></span>
+            <span><span class="status-dot" id="statusDot"></span><span id="statusText">Connecting...</span></span>
+        </div>
+    </div>
+
+    <div class="main-layout">
+        <div class="grid-container">
+            <canvas id="gridCanvas"></canvas>
+        </div>
+
+        <div class="sidebar">
+            <!-- Vehicle Stats -->
+            <div class="card">
+                <h3>🚗 Οχήματα</h3>
+                <div class="stat-grid">
+                    <div class="stat-item">
+                        <div class="number" id="totalVehicles">0</div>
+                        <div class="label">Σύνολο</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="number" id="activeResidents">0</div>
+                        <div class="label">Κάτοικοι</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="number" id="activeTransients">0</div>
+                        <div class="label">Διερχόμενοι</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="number" id="activeService">0</div>
+                        <div class="label">Υπηρεσίες</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Events -->
+            <div class="card">
+                <h3>⚡ Γεγονότα</h3>
+                <div class="stat-row">
+                    <span class="key">Ενεργές Καταιγίδες</span>
+                    <span class="val" id="activeStorms">0</span>
+                </div>
+                <div class="stat-row">
+                    <span class="key">Συνολικές Καταιγίδες</span>
+                    <span class="val" id="totalStorms">0</span>
+                </div>
+                <div class="stat-row">
+                    <span class="key">Ατυχήματα</span>
+                    <span class="val" id="totalAccidents">0</span>
+                </div>
+                <div class="stat-row">
+                    <span class="key">Βλάβες</span>
+                    <span class="val" id="totalBreakdowns">0</span>
+                </div>
+            </div>
+
+            <!-- Metrics -->
+            <div class="card">
+                <h3>📊 Μετρικές</h3>
+                <div class="stat-row">
+                    <span class="key">Μ.Ο. Χρόνου Διερχ.</span>
+                    <span class="val" id="avgTransit">-</span>
+                </div>
+                <div class="stat-row">
+                    <span class="key">Μ.Ο. Χρόνου Κατοίκ.</span>
+                    <span class="val" id="avgInternal">-</span>
+                </div>
+                <div class="stat-row">
+                    <span class="key">Χρόνος/Μήκος Διερχ.</span>
+                    <span class="val" id="transitPerLen">-</span>
+                </div>
+                <div class="stat-row">
+                    <span class="key">Χρόνος/Μήκος Κατοίκ.</span>
+                    <span class="val" id="internalPerLen">-</span>
+                </div>
+                <div class="stat-row">
+                    <span class="key">Διαφορά Ροής</span>
+                    <span class="val" id="flowDiff">-</span>
+                </div>
+            </div>
+
+            <!-- Legend -->
+            <div class="card">
+                <h3>🗺️ Υπόμνημα</h3>
+                <div class="legend">
+                    <div class="legend-item"><div class="legend-color" style="background:#4a90d9"></div>Λεωφόρος (A)</div>
+                    <div class="legend-item"><div class="legend-color" style="background:#8B6914"></div>Τοπικός (B)</div>
+                    <div class="legend-item"><div class="legend-color" style="background:#555"></div>Μονόδρομος (C)</div>
+                    <div class="legend-item"><div class="legend-color" style="background:#008080"></div>Πεζοδρόμιο</div>
+                    <div class="legend-item"><div class="legend-color" style="background:#b8860b"></div>Διασταύρωση</div>
+                    <div class="legend-item"><div class="legend-color" style="background:#ff4444"></div>Είσοδος/Έξοδος</div>
+                    <div class="legend-item"><div class="legend-color" style="background:#ff9900"></div>Κατοικίες (A)</div>
+                    <div class="legend-item"><div class="legend-color" style="background:#3366cc"></div>Γραφεία (B)</div>
+                    <div class="legend-item"><div class="legend-color" style="background:#33cc33"></div>Αγορές (C)</div>
+                    <div class="legend-item"><div class="legend-color" style="background:#cc33cc"></div>Αναψυχή (D)</div>
+                    <div class="legend-item"><div class="legend-color" style="background:#999"></div>Άλλο (E)</div>
+                    <div class="legend-item"><div class="legend-color" style="background:#90ee90"></div>Ελ. Χώρος</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    const canvas = document.getElementById('gridCanvas');
+    const ctx = canvas.getContext('2d');
+    let gridData = null;
+    let stateData = null;
+    let cellSize = 4;
+
+    // Cell type colors (matching CellType enum ordinal)
+    const CELL_COLORS = [
+        '#1a1a2e', // EMPTY
+        '#c0c0c0', // WALL (light gray - perimeter)
+        '#4a90d9', // ROAD (default blue, will be overridden)
+        '#008080', // SIDEWALK (petrol)
+        '#b8860b', // INTERSECTION (dark yellow)
+        '#9370db', // TRAFFIC_LIGHT (purple)
+        '#ff9900', // BUILDING (default, overridden by category)
+        '#ff4444', // ENTRY_EXIT (red)
+        '#90ee90'  // FREE_SPACE (lime green)
+    ];
+
+    // Vehicle type colors
+    const VEHICLE_COLORS = {
+        'RESIDENT': '#ffffff',
+        'TRANSIENT': '#ffff00',
+        'FOOD_TRUCK': '#00ff88',
+        'GARBAGE_TRUCK': '#ff8800'
+    };
+
+    function resizeCanvas() {
+        const container = canvas.parentElement;
+        canvas.width = container.clientWidth;
+        canvas.height = container.clientHeight;
+        if (gridData) render();
+    }
+
+    async function fetchGrid() {
+        try {
+            const resp = await fetch('/api/grid');
+            gridData = await resp.json();
+            resizeCanvas();
+        } catch (e) {
+            console.error('Grid fetch error:', e);
+        }
+    }
+
+    async function fetchState() {
+        try {
+            const resp = await fetch('/api/state');
+            stateData = await resp.json();
+            updateUI();
+            render();
+        } catch (e) {
+            console.error('State fetch error:', e);
+            document.getElementById('statusDot').className = 'status-dot status-stopped';
+            document.getElementById('statusText').textContent = 'Disconnected';
+        }
+    }
+
+    function updateUI() {
+        if (!stateData) return;
+
+        document.getElementById('hdrTick').textContent = stateData.tick;
+        document.getElementById('hdrDay').textContent = stateData.day;
+        document.getElementById('hdrZone').textContent = stateData.zoneLabel;
+
+        const dot = document.getElementById('statusDot');
+        const txt = document.getElementById('statusText');
+        if (stateData.running) {
+            dot.className = 'status-dot status-running';
+            txt.textContent = 'Running';
+        } else {
+            dot.className = 'status-dot status-stopped';
+            txt.textContent = 'Stopped';
+        }
+
+        // Vehicles
+        const v = stateData.vehicles || {};
+        document.getElementById('totalVehicles').textContent = v.total || 0;
+        document.getElementById('activeResidents').textContent = v.residents || 0;
+        document.getElementById('activeTransients').textContent = v.transients || 0;
+        document.getElementById('activeService').textContent =
+            (v.foodTrucks || 0) + (v.garbageTrucks || 0);
+
+        // Events
+        const e = stateData.events || {};
+        document.getElementById('activeStorms').textContent = e.activeStorms || 0;
+        document.getElementById('totalStorms').textContent = e.totalStorms || 0;
+        document.getElementById('totalAccidents').textContent = e.totalAccidents || 0;
+        document.getElementById('totalBreakdowns').textContent = e.totalBreakdowns || 0;
+
+        // Metrics
+        const m = stateData.metrics || {};
+        document.getElementById('avgTransit').textContent = m.avgTransitTime || '-';
+        document.getElementById('avgInternal').textContent = m.avgInternalTime || '-';
+        document.getElementById('transitPerLen').textContent = m.avgTransitTimePerLength || '-';
+        document.getElementById('internalPerLen').textContent = m.avgInternalTimePerLength || '-';
+        document.getElementById('flowDiff').textContent = m.flowDifference || '-';
+    }
+
+    function render() {
+        if (!gridData || !gridData.cells) return;
+
+        const rows = gridData.rows;
+        const cols = gridData.cols;
+
+        // Calculate cell size to fit canvas
+        cellSize = Math.max(1, Math.min(
+            Math.floor(canvas.width / cols),
+            Math.floor(canvas.height / rows)
+        ));
+
+        const offsetX = Math.floor((canvas.width - cols * cellSize) / 2);
+        const offsetY = Math.floor((canvas.height - rows * cellSize) / 2);
+
+        // Clear
+        ctx.fillStyle = '#050810';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Draw cells
+        const cells = gridData.cells;
+        for (let r = 0; r < rows; r++) {
+            for (let c = 0; c < cols; c++) {
+                const type = cells[r][c];
+                let color = CELL_COLORS[type] || '#1a1a2e';
+
+                // Override building color by block category
+                if (type === 6) { // BUILDING
+                    // Find block at this position
+                    const block = findBlockAt(r, c);
+                    if (block) {
+                        switch(block.category) {
+                            case 'A': color = '#ff9900'; break;
+                            case 'B': color = '#3366cc'; break;
+                            case 'C': color = '#33cc33'; break;
+                            case 'D': color = '#cc33cc'; break;
+                            case 'E': color = '#999999'; break;
+                        }
+                    }
+                }
+
+                ctx.fillStyle = color;
+                ctx.fillRect(offsetX + c * cellSize, offsetY + r * cellSize, cellSize, cellSize);
+            }
+        }
+
+        // Draw storms
+        if (stateData && stateData.storms) {
+            ctx.globalAlpha = 0.15;
+            for (const storm of stateData.storms) {
+                ctx.fillStyle = '#4444ff';
+                ctx.beginPath();
+                ctx.arc(
+                    offsetX + storm.centerCol * cellSize + cellSize/2,
+                    offsetY + storm.centerRow * cellSize + cellSize/2,
+                    storm.radius * cellSize,
+                    0, Math.PI * 2
+                );
+                ctx.fill();
+            }
+            ctx.globalAlpha = 1.0;
+        }
+
+        // Draw vehicles
+        if (stateData && stateData.vehiclePositions) {
+            for (const v of stateData.vehiclePositions) {
+                const color = VEHICLE_COLORS[v.type] || '#ffffff';
+                const x = offsetX + v.col * cellSize;
+                const y = offsetY + v.row * cellSize;
+                const sz = Math.max(2, cellSize);
+
+                ctx.fillStyle = color;
+                ctx.fillRect(x, y, sz, sz);
+
+                // Glow effect for moving vehicles
+                if (v.state === 'MOVING') {
+                    ctx.shadowColor = color;
+                    ctx.shadowBlur = 4;
+                    ctx.fillRect(x, y, sz, sz);
+                    ctx.shadowBlur = 0;
+                }
+
+                // Red border for broken/accident
+                if (v.state === 'BROKEN_DOWN' || v.state === 'IN_ACCIDENT') {
+                    ctx.strokeStyle = '#ff0000';
+                    ctx.lineWidth = 1;
+                    ctx.strokeRect(x, y, sz, sz);
+                }
+            }
+        }
+
+        // Draw block labels
+        if (gridData.blocks && cellSize >= 3) {
+            ctx.fillStyle = '#ffffff';
+            ctx.font = `${Math.max(8, cellSize * 2)}px Inter, sans-serif`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            for (const block of gridData.blocks) {
+                if (block.labelRow !== undefined) {
+                    const x = offsetX + block.labelCol * cellSize + cellSize/2;
+                    const y = offsetY + block.labelRow * cellSize + cellSize/2;
+                    ctx.fillText(block.id, x, y);
+                }
+            }
+        }
+    }
+
+    function findBlockAt(row, col) {
+        if (!gridData || !gridData.blocks) return null;
+        // Simple lookup - not optimal but works for rendering
+        for (const block of gridData.blocks) {
+            if (block.labelRow !== undefined) {
+                // Check if close to block center
+                const dr = Math.abs(row - block.labelRow);
+                const dc = Math.abs(col - block.labelCol);
+                if (dr < 5 && dc < 5) return block;
+            }
+        }
+        return null;
+    }
+
+    // Initialize
+    window.addEventListener('resize', resizeCanvas);
+    fetchGrid();
+    setInterval(fetchState, 500);
+    </script>
+</body>
+</html>

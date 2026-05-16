@@ -1,0 +1,175 @@
+{
+  "world": {
+    "grid_rows": 60,
+    "grid_cols": 80,
+    "ticks_per_hour": 10,
+    "hours_per_day": 24
+  },
+  "roads": {
+    "min_road_area": 8,
+    "road_type_distribution": {
+      "R1": 0.15,
+      "R2": 0.7,
+      "R3": 0.15
+    },
+    "r1_lane_width": 1,
+    "r2_lane_width": 1,
+    "r3_lane_width": 1
+  },
+  "blocks": {
+    "block_distribution": {
+      "residential": 0.25,
+      "office": 0.25,
+      "market": 0.2,
+      "leisure": 0.2,
+      "other": 0.1
+    },
+    "food_consumption_rate": 0.5,
+    "food_capacity_factor": 10.0,
+    "pollution_generation_rate": 0.3,
+    "pollution_capacity_factor": 8.0
+  },
+  "population": {
+    "permanent_population": 200,
+    "transient_population": 50
+  },
+  "fleet": {
+    "food_fleet_size": 5,
+    "food_capacity": 50,
+    "food_target_categories": [
+      3,
+      4
+    ],
+    "collection_fleet_size": 5,
+    "collection_capacity": 40,
+    "collection_target_categories": [
+      1,
+      2,
+      3,
+      4,
+      5
+    ]
+  },
+  "vehicle": {
+    "min_speed": 1,
+    "max_speed": 5
+  },
+  "weather": {
+    "max_storms": 3,
+    "storm_radius": 8,
+    "storm_speed_reduction": 2,
+    "storm_probability": 0.05
+  },
+  "events": {
+    "breakdown_probability": 0.002,
+    "breakdown_duration": 30,
+    "accident_probability": 0.001,
+    "accident_duration": 50,
+    "service_breakdown_factor": 1.0
+  },
+  "traffic": {
+    "zones": [
+      {
+        "zone_id": 1,
+        "start_hour": 6,
+        "end_hour": 9,
+        "transient_probability": 0.15,
+        "internal_probability": 0.15,
+        "transitions": {
+          "Res->Off(W)": 0.05,
+          "Res->Mar(W)": 0.05,
+          "Res->Lei(W)": 0.02,
+          "Res->Oth(W)": 0.03
+        }
+      },
+      {
+        "zone_id": 2,
+        "start_hour": 9,
+        "end_hour": 12,
+        "transient_probability": 0.2,
+        "internal_probability": 0.2,
+        "transitions": {
+          "Res->Mar(F)": 0.1,
+          "Res->Oth(O)": 0.04,
+          "Off->Oth(O)": 0.06
+        }
+      },
+      {
+        "zone_id": 3,
+        "start_hour": 12,
+        "end_hour": 15,
+        "transient_probability": 0.15,
+        "internal_probability": 0.15,
+        "transitions": {
+          "Res->Mar(F)": 0.07,
+          "Res->Oth(O)": 0.03,
+          "Off->Oth(O)": 0.05
+        }
+      },
+      {
+        "zone_id": 4,
+        "start_hour": 15,
+        "end_hour": 18,
+        "transient_probability": 0.15,
+        "internal_probability": 0.15,
+        "transitions": {
+          "Res->Mar(F)": 0.03,
+          "Off->Oth(O)": 0.05,
+          "Mar->Oth(O)": 0.05,
+          "Lei->Oth(O)": 0.02
+        }
+      },
+      {
+        "zone_id": 5,
+        "start_hour": 18,
+        "end_hour": 21,
+        "transient_probability": 0.12,
+        "internal_probability": 0.12,
+        "transitions": {
+          "Res->Oth(O)": 0.02,
+          "Res->Lei(L)": 0.02,
+          "Off->Lei(L)": 0.02,
+          "Mar->Lei(L)": 0.03,
+          "Oth->Lei(L)": 0.03
+        }
+      },
+      {
+        "zone_id": 6,
+        "start_hour": 21,
+        "end_hour": 24,
+        "transient_probability": 0.1,
+        "internal_probability": 0.1,
+        "transitions": {
+          "Off->Res(S)": 0.05,
+          "Mar->Res(S)": 0.02,
+          "Lei->Res(S)": 0.02,
+          "Oth->Res(S)": 0.01
+        }
+      },
+      {
+        "zone_id": 7,
+        "start_hour": 0,
+        "end_hour": 3,
+        "transient_probability": 0.08,
+        "internal_probability": 0.08,
+        "transitions": {
+          "Off->Res(S)": 0.03,
+          "Lei->Res(S)": 0.03,
+          "Oth->Res(S)": 0.02
+        }
+      },
+      {
+        "zone_id": 8,
+        "start_hour": 3,
+        "end_hour": 6,
+        "transient_probability": 0.05,
+        "internal_probability": 0.05,
+        "transitions": {
+          "Lei->Res(S)": 0.03,
+          "Oth->Res(S)": 0.02
+        }
+      }
+    ]
+  },
+  "random_seed": 42
+}
