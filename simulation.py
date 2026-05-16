@@ -274,7 +274,11 @@ class Simulation:
                 if hazard_pos in vehicle.current_path:
                     logger.info(f"V2V: Όχημα {vehicle.vehicle_id} έλαβε σήμα για κίνδυνο στο {hazard_pos}. Re-routing...")
                     # Βρίσκει νέα διαδρομή
-                    vehicle.find_path_relaxed()
+                    if vehicle.destination:
+                        new_path = vehicle.pathfinder.find_path_relaxed(vehicle.position, vehicle.destination, avoid_positions={hazard_pos})
+                        if new_path:
+                            vehicle.current_path = new_path
+                            vehicle.path_index = 0
 
 
     def _get_zone_id(self, hour: int) -> int:

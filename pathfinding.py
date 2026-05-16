@@ -52,7 +52,8 @@ class Pathfinder:
     def find_path(self, start: Tuple[int, int], goal: Tuple[int, int],
                   respect_lanes: bool = True,
                   avoid_occupied: bool = True,
-                  allowed_types: Optional[Set[CellType]] = None
+                  allowed_types: Optional[Set[CellType]] = None,
+                  avoid_positions: Optional[Set[Tuple[int, int]]] = None
                   ) -> Optional[List[Tuple[int, int]]]:
         """
         Εύρεση διαδρομής από την αφετηρία (start) στον στόχο (goal) χρησιμοποιώντας τον A*.
@@ -117,6 +118,10 @@ class Pathfinder:
                 if avoid_occupied and neighbor_cell.is_occupied:
                     continue
 
+                # Απόλυτη αποφυγή συγκεκριμένων κελιών (π.χ. βλάβες V2V)
+                if avoid_positions and neighbor_pos in avoid_positions:
+                    continue
+
                 # Έλεγχος κατεύθυνσης της λωρίδας (για σεβασμό των μονόδρομων/λωρίδων)
                 if respect_lanes and neighbor_cell.lane_direction:
                     move_dir = self._get_direction(dr, dc)
@@ -161,13 +166,13 @@ class Pathfinder:
             return (best_target, best_path)
         return None
 
-    def find_path_relaxed(self, start: Tuple[int, int], goal: Tuple[int, int]
+    def find_path_relaxed(self, start: Tuple[int, int], goal: Tuple[int, int], avoid_positions: Optional[Set[Tuple[int, int]]] = None
                           ) -> Optional[List[Tuple[int, int]]]:
         """
-        Βρίσκει διαδρομή με "χαλαρούς" περιορισμούς (αγνοώντας τη φορά των λωρίδων και τα εμπόδια).
-        Χρησιμοποιείται ως εναλλακτική (fallback) αν η αυστηρή εύρεση διαδρομής αποτύχει.
+        Βρίσκει διαδρομή με πιο "χαλαρούς" κανόνες (π.χ. δεν ελέγχει is_occupied),
+        υποθέτοντας ότι τα σταματημένα οχήματα κάποια στιγμή θα μετακινηθούν.
         """
-        return self.find_path(start, goal, respect_lanes=False, avoid_occupied=False)
+        return self.find_path(start, goal, respect_lanes=True, avoid_occupied=False, avoid_positions=avoid_positions)
 
     def _reconstruct_path(self, node: PathNode) -> List[Tuple[int, int]]:
         """Ανακατασκευάζει τη διαδρομή από τον κόμβο-στόχο πίσω στην αφετηρία."""
