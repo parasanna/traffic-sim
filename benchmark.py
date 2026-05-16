@@ -7,7 +7,7 @@ import time
 
 config = SimulationConfig()
 sim = Simulation(config)
-sim.start()
+sim.initialize()
 
 print("Running benchmark for 2000 ticks on branch:", os.popen("git branch --show-current").read().strip())
 start_time = time.time()
