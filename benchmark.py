@@ -16,7 +16,7 @@ for i in range(2000):
     if i % 500 == 0:
         print(f"Tick {i}...")
 
-stats = sim.get_state()["stats"]
+stats = sim.stats.to_dict()
 print("--- RESULTS ---")
 print(f"Time taken: {time.time() - start_time:.2f}s")
 print(f"Ticks: {sim.current_tick}")
