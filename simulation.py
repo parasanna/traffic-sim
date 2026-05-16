@@ -129,7 +129,7 @@ class Simulation:
 
         # 5. Ενεργοποίηση Καιρού και Γεγονότων
         self.weather = WeatherSystem(self.world, self.rng)
-        self.event_manager = EventManager(self.world, self.rng)
+        self.event_manager = EventManager(self.world, self.rng, simulation=self)
 
         # 6. Δημιουργία Οχημάτων
         self._create_residents()
@@ -247,6 +247,35 @@ class Simulation:
 
             for callback in self._on_zone_change_callbacks:
                 callback(old_zone, new_zone)
+
+    def broadcast_hazard(self, hazard_pos: Tuple[int, int], radius: int = 15):
+        """
+        Επικοινωνία V2V (Vehicle-to-Vehicle). 
+        Εκπέμπει σήμα κινδύνου σε όλα τα ενεργά οχήματα γύρω από ένα σημείο.
+        Αν η διαδρομή ενός οχήματος περιλαμβάνει το προβληματικό σημείο, θα κάνει re-routing.
+        """
+        if not self.is_initialized:
+            return
+            
+        from agents.base_agent import VehicleState
+        
+        for vehicle in self.vehicles.values():
+            if not vehicle.position or not vehicle.current_path:
+                continue
+                
+            # Αν το όχημα έχει ήδη βλάβη/ατύχημα, αγνόησέ το
+            if vehicle.state in (VehicleState.BROKEN_DOWN, VehicleState.IN_ACCIDENT):
+                continue
+                
+            # Έλεγχος απόστασης Manhattan από το όχημα
+            dist_to_hazard = abs(vehicle.position[0] - hazard_pos[0]) + abs(vehicle.position[1] - hazard_pos[1])
+            if dist_to_hazard <= radius:
+                # Έλεγχος αν το σημείο βρίσκεται μέσα στη σχεδιασμένη διαδρομή του
+                if hazard_pos in vehicle.current_path:
+                    logger.info(f"V2V: Όχημα {vehicle.vehicle_id} έλαβε σήμα για κίνδυνο στο {hazard_pos}. Re-routing...")
+                    # Βρίσκει νέα διαδρομή
+                    vehicle.find_path_relaxed()
+
 
     def _get_zone_id(self, hour: int) -> int:
         """Επιστρέφει το Zone ID (π.χ. Πρωί, Απόγευμα, Βράδυ) για μια συγκεκριμένη ώρα."""

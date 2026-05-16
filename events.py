@@ -87,10 +87,11 @@ class WeatherSystem:
 class EventManager:
     """Διαχειρίζεται τα τυχαία γεγονότα κυκλοφορίας: Βλάβες (Breakdowns) και Ατυχήματα (Accidents)."""
 
-    def __init__(self, world: GridWorld, rng: random.Random):
+    def __init__(self, world: GridWorld, rng: random.Random, simulation=None):
         self.world = world
         self.rng = rng
         self.config = world.config.events
+        self.simulation = simulation
 
     def check_breakdown(self, vehicle: BaseVehicle) -> bool:
         """
@@ -125,6 +126,11 @@ class EventManager:
 
             vehicle.trigger_breakdown(duration)
             self._handle_breakdown_traffic(vehicle)
+            
+            # V2V: Broadcast hazard to other vehicles
+            if self.simulation and vehicle.position:
+                self.simulation.broadcast_hazard(vehicle.position)
+                
             return True
         return False
 
@@ -165,6 +171,11 @@ class EventManager:
                 if self.rng.random() < self.config.accident_probability:
                     vehicle1.trigger_accident(self.config.accident_duration)
                     vehicle2.trigger_accident(self.config.accident_duration)
+                    
+                    # V2V: Broadcast hazard
+                    if self.simulation:
+                        self.simulation.broadcast_hazard(pos1)
+                        
                     return True
 
         return False
