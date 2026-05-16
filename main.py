@@ -26,6 +26,11 @@ def main():
     parser.add_argument('--tick-delay', type=float, default=0.05, help='Καθυστέρηση μεταξύ των κύκλων σε δευτερόλεπτα (s)')
     args = parser.parse_args()
 
+    # Υποστήριξη για δυναμική θύρα από υπηρεσίες Cloud (όπως το Render.com)
+    import os
+    if 'PORT' in os.environ:
+        args.port = int(os.environ['PORT'])
+
     # Φόρτωση ή δημιουργία των ρυθμίσεων (config)
     if args.config:
         # Αν δόθηκε αρχείο, το φορτώνουμε
