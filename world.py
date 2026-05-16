@@ -1,6 +1,6 @@
 """
-World module: Grid World representation and cell management.
-Implements the orthogonal grid with various cell types.
+Μονάδα Κόσμου (World module): Αναπαράσταση του 'Grid World' (Πλέγματος) και διαχείριση κελιών.
+Υλοποιεί το ορθογώνιο πλέγμα με διάφορους τύπους κελιών (δρόμοι, κτίρια, πεζοδρόμια κλπ).
 """
 import random
 from enum import Enum, auto
@@ -10,23 +10,23 @@ from config import SimulationConfig
 
 
 class CellType(Enum):
-    """Types of cells in the grid world."""
-    EMPTY = auto()          # Free space
-    ROAD = auto()           # Road segment
-    SIDEWALK = auto()       # Sidewalk (between blocks and roads)
-    BLOCK = auto()          # Part of a building block
-    WALL = auto()           # Perimeter wall
-    ENTRY_EXIT = auto()     # Entry/exit point on R1 at border
-    TRAFFIC_LIGHT = auto()  # Traffic light at intersections
-    BLOCK_ENTRY = auto()    # Entry/exit point for a building block
+    """Τύποι κελιών στον κόσμο του πλέγματος."""
+    EMPTY = auto()          # Ελεύθερος χώρος
+    ROAD = auto()           # Τμήμα δρόμου
+    SIDEWALK = auto()       # Πεζοδρόμιο (μεταξύ κτιρίων και δρόμων)
+    BLOCK = auto()          # Μέρος ενός οικοδομικού τετραγώνου (κτίριο)
+    WALL = auto()           # Τοίχος (περιμετρικά του χάρτη)
+    ENTRY_EXIT = auto()     # Σημείο εισόδου/εξόδου στους κεντρικούς δρόμους (R1) στα όρια του χάρτη
+    TRAFFIC_LIGHT = auto()  # Φανάρι σε διασταυρώσεις
+    BLOCK_ENTRY = auto()    # Πόρτα (σημείο εισόδου/εξόδου) για ένα οικοδομικό τετράγωνο
 
 
 class Direction(Enum):
-    """Cardinal directions for movement and road orientation."""
-    NORTH = (0, -1)   # Up (decreasing row)
-    SOUTH = (0, 1)    # Down (increasing row)
-    EAST = (1, 0)     # Right (increasing col)
-    WEST = (-1, 0)    # Left (decreasing col)
+    """Βασικές κατευθύνσεις (Ορίζοντα) για την κίνηση και τον προσανατολισμό των δρόμων."""
+    NORTH = (0, -1)   # Βορράς / Πάνω (μείωση γραμμής)
+    SOUTH = (0, 1)    # Νότος / Κάτω (αύξηση γραμμής)
+    EAST = (1, 0)     # Ανατολή / Δεξιά (αύξηση στήλης)
+    WEST = (-1, 0)    # Δύση / Αριστερά (μείωση στήλης)
 
     @property
     def dx(self) -> int:
@@ -38,6 +38,7 @@ class Direction(Enum):
 
     @property
     def opposite(self) -> 'Direction':
+        """Επιστρέφει την αντίθετη κατεύθυνση."""
         opposites = {
             Direction.NORTH: Direction.SOUTH,
             Direction.SOUTH: Direction.NORTH,
@@ -48,45 +49,45 @@ class Direction(Enum):
 
 
 class RoadType(Enum):
-    """Road classification types."""
-    R1 = "avenue"       # 2 lanes per direction
-    R2 = "street"       # 1 lane per direction
-    R3 = "one_way"      # 1 lane, one direction
+    """Κατηγορίες Οδικού Δικτύου."""
+    R1 = "avenue"       # Λεωφόρος: 2 λωρίδες ανά κατεύθυνση
+    R2 = "street"       # Οδός: 1 λωρίδα ανά κατεύθυνση
+    R3 = "one_way"      # Μονόδρομος: 1 λωρίδα, μία κατεύθυνση
 
 
 class BlockCategory(Enum):
-    """Building block categories."""
-    RESIDENTIAL = 1
-    OFFICE = 2
-    MARKET = 3
-    LEISURE = 4
-    OTHER = 5
+    """Κατηγορίες Οικοδομικών Τετραγώνων."""
+    RESIDENTIAL = 1     # Κατοικίες
+    OFFICE = 2          # Γραφεία
+    MARKET = 3          # Αγορές / Καταστήματα
+    LEISURE = 4         # Διασκέδαση
+    OTHER = 5           # Λοιπά
 
 
 @dataclass
 class RoadSegment:
-    """A segment of a road occupying grid cells."""
+    """Ένα τμήμα ενός δρόμου που καταλαμβάνει συγκεκριμένα κελιά του πλέγματος."""
     road_id: int
     road_type: RoadType
-    cells: List[Tuple[int, int]]  # List of (row, col) grid positions
-    direction: Direction           # Primary traffic direction
-    lanes: int                     # Number of lanes per direction
-    is_border_entry: bool = False  # If it's an entry/exit point at border
-    is_border_exit: bool = False
+    cells: List[Tuple[int, int]]   # Λίστα από θέσεις (row, col) που καταλαμβάνει το τμήμα
+    direction: Direction           # Κύρια κατεύθυνση κυκλοφορίας
+    lanes: int                     # Αριθμός λωρίδων ανά κατεύθυνση
+    is_border_entry: bool = False  # Αν είναι σημείο εισόδου από τα όρια του χάρτη
+    is_border_exit: bool = False   # Αν είναι σημείο εξόδου προς τα όρια του χάρτη
 
 
 @dataclass
 class Road:
-    """A complete road composed of segments."""
+    """Ένας ολόκληρος δρόμος που αποτελείται από πολλά τμήματα (segments)."""
     road_id: int
     road_type: RoadType
     segments: List[RoadSegment] = field(default_factory=list)
-    entry_points: List[Tuple[int, int]] = field(default_factory=list)  # For R1
-    exit_points: List[Tuple[int, int]] = field(default_factory=list)   # For R1
+    entry_points: List[Tuple[int, int]] = field(default_factory=list)  # Μόνο για R1
+    exit_points: List[Tuple[int, int]] = field(default_factory=list)   # Μόνο για R1
 
     @property
     def total_area(self) -> int:
-        """Total number of cells this road occupies."""
+        """Το συνολικό εμβαδόν (σε αριθμό κελιών) που καταλαμβάνει ο δρόμος."""
         all_cells = set()
         for seg in self.segments:
             all_cells.update(seg.cells)
@@ -95,39 +96,40 @@ class Road:
 
 @dataclass
 class BuildingBlock:
-    """A building block (city block / oikodomiko tetragono)."""
+    """Ένα Οικοδομικό Τετράγωνο (Building block / City block)."""
     block_id: int
     category: BlockCategory
-    cells: List[Tuple[int, int]]        # Grid cells of this block
-    entry_point: Tuple[int, int] = (0, 0)  # Entry/exit point (on sidewalk)
-    facing_road_cell: Tuple[int, int] = (0, 0)  # Road cell it faces
+    cells: List[Tuple[int, int]]        # Τα κελιά που αποτελούν το τετράγωνο
+    entry_point: Tuple[int, int] = (0, 0)  # Η "πόρτα" του τετραγώνου (πάνω στο πεζοδρόμιο)
+    facing_road_cell: Tuple[int, int] = (0, 0)  # Το κελί του δρόμου στο οποίο "βλέπει" η πόρτα
 
-    # Resource tracking
-    food_level: float = 0.0
-    food_capacity: float = 0.0
-    pollution_level: float = 0.0
-    pollution_capacity: float = 0.0
+    # Παρακολούθηση Πόρων (Resources)
+    food_level: float = 0.0             # Τρέχον επίπεδο διαθέσιμου φαγητού
+    food_capacity: float = 0.0          # Μέγιστη χωρητικότητα αποθήκης φαγητού
+    pollution_level: float = 0.0        # Τρέχον επίπεδο συσσωρευμένης ρύπανσης/σκουπιδιών
+    pollution_capacity: float = 0.0     # Μέγιστη χωρητικότητα σκουπιδιών
 
     @property
     def area(self) -> int:
+        """Εμβαδόν του τετραγώνου σε κελιά."""
         return len(self.cells)
 
     def update_resources(self, fcr: float, pgr: float):
-        """Update food consumption and pollution generation per tick."""
-        # Consume food
+        """Ενημέρωση (ανά tick) της κατανάλωσης φαγητού και παραγωγής σκουπιδιών."""
+        # Κατανάλωση φαγητού
         self.food_level = max(0.0, self.food_level - fcr)
-        # Generate pollution
+        # Παραγωγή ρύπανσης/σκουπιδιών
         self.pollution_level = min(self.pollution_capacity, self.pollution_level + pgr)
 
     def deliver_food(self, amount: float) -> float:
-        """Deliver food to this block. Returns actual amount delivered."""
+        """Παράδοση φαγητού σε αυτό το τετράγωνο. Επιστρέφει την ποσότητα που παραδόθηκε πραγματικά."""
         space = self.food_capacity - self.food_level
         delivered = min(amount, space)
         self.food_level += delivered
         return delivered
 
     def collect_pollution(self, capacity: float) -> float:
-        """Collect pollution from this block. Returns amount collected."""
+        """Συλλογή σκουπιδιών από αυτό το τετράγωνο. Επιστρέφει την ποσότητα που συλλέχθηκε."""
         collected = min(self.pollution_level, capacity)
         self.pollution_level -= collected
         return collected
@@ -135,23 +137,24 @@ class BuildingBlock:
 
 @dataclass
 class Cell:
-    """A single cell in the grid world."""
+    """Ένα μεμονωμένο κελί μέσα στον κόσμο του πλέγματος."""
     row: int
     col: int
     cell_type: CellType = CellType.EMPTY
     road_segment: Optional[RoadSegment] = None
     block: Optional[BuildingBlock] = None
-    vehicle_id: Optional[int] = None    # ID of vehicle occupying this cell
-    is_occupied: bool = False
-    lane_direction: Optional[Direction] = None  # Direction of traffic flow
+    vehicle_id: Optional[int] = None    # Το ID του οχήματος που βρίσκεται πάνω στο κελί (αν υπάρχει)
+    is_occupied: bool = False           # Αν το κελί είναι πιασμένο από όχημα
+    lane_direction: Optional[Direction] = None  # Η κατεύθυνση κυκλοφορίας της λωρίδας
     road_id: Optional[int] = None
-    # For R1 border entry/exit
+    # Σημεία εισόδου/εξόδου στα σύνορα του χάρτη για δρόμους R1
     is_border_entry: bool = False
     is_border_exit: bool = False
 
     @property
     def is_passable(self) -> bool:
-        """Can a vehicle move through this cell?"""
+        """Μπορεί ένα όχημα να περάσει μέσα από αυτό το κελί;"""
+        # Περνάει μόνο αν είναι δρόμος ή πόρτα ΚΑΙ δεν είναι ήδη πιασμένο
         return (self.cell_type in (CellType.ROAD, CellType.ENTRY_EXIT, CellType.BLOCK_ENTRY)
                 and not self.is_occupied)
 
@@ -162,8 +165,9 @@ class Cell:
 
 class GridWorld:
     """
-    The main grid world containing all cells, roads, and building blocks.
-    Implements a GR x GC orthogonal grid.
+    Η κεντρική κλάση του Grid World. 
+    Περιέχει όλα τα κελιά, τους δρόμους, και τα οικοδομικά τετράγωνα.
+    Υλοποιεί ένα ορθογώνιο πλέγμα διαστάσεων GR (γραμμές) x GC (στήλες).
     """
 
     def __init__(self, config: SimulationConfig):
@@ -172,44 +176,45 @@ class GridWorld:
         self.cols = config.world.grid_cols
         self.rng = random.Random(config.random_seed)
 
-        # Initialize grid
+        # Αρχικοποίηση του πίνακα (πλέγματος) με κενά κελιά
         self.grid: List[List[Cell]] = [
             [Cell(row=r, col=c) for c in range(self.cols)]
             for r in range(self.rows)
         ]
 
-        # Registries
+        # Μητρώα (Registries) για γρήγορη εύρεση
         self.roads: Dict[int, Road] = {}
         self.blocks: Dict[int, BuildingBlock] = {}
         self.border_entries: List[Tuple[int, int]] = []
         self.border_exits: List[Tuple[int, int]] = []
 
-        # Counters for ID generation
+        # Μετρητές για δημιουργία μοναδικών ID
         self._next_road_id = 0
         self._next_block_id = 0
 
     def get_cell(self, row: int, col: int) -> Optional[Cell]:
-        """Get cell at position, return None if out of bounds."""
+        """Φέρνει το κελί στη συγκεκριμένη θέση. Επιστρέφει None αν είναι εκτός ορίων."""
         if 0 <= row < self.rows and 0 <= col < self.cols:
             return self.grid[row][col]
         return None
 
     def is_valid(self, row: int, col: int) -> bool:
-        """Check if coordinates are within grid bounds."""
+        """Ελέγχει αν οι συντεταγμένες είναι μέσα στα όρια του χάρτη."""
         return 0 <= row < self.rows and 0 <= col < self.cols
 
     def is_border(self, row: int, col: int) -> bool:
-        """Check if a cell is on the border of the grid."""
+        """Ελέγχει αν ένα κελί βρίσκεται στα ακριανά σύνορα (περίμετρος) του χάρτη."""
         return row == 0 or row == self.rows - 1 or col == 0 or col == self.cols - 1
 
     def get_neighbors(self, row: int, col: int, include_diagonal: bool = False) -> List[Cell]:
-        """Get neighboring cells (4-connected or 8-connected)."""
+        """Επιστρέφει τα γειτονικά κελιά (Σταυρός: Πάνω, Κάτω, Αριστερά, Δεξιά)."""
         neighbors = []
         for dr, dc in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
             nr, nc = row + dr, col + dc
             cell = self.get_cell(nr, nc)
             if cell:
                 neighbors.append(cell)
+        # Προαιρετικά συμπεριλαμβάνει και τα διαγώνια κελιά
         if include_diagonal:
             for dr, dc in [(-1, -1), (-1, 1), (1, -1), (1, 1)]:
                 nr, nc = row + dr, col + dc
@@ -219,16 +224,16 @@ class GridWorld:
         return neighbors
 
     def get_moore_neighborhood(self, row: int, col: int) -> List[Cell]:
-        """Get Moore neighborhood (8-connected including diagonals)."""
+        """Επιστρέφει τη γειτονιά Moore (Και τα 8 γειτονικά κελιά, μαζί με τα διαγώνια)."""
         return self.get_neighbors(row, col, include_diagonal=True)
 
     def set_cell_type(self, row: int, col: int, cell_type: CellType):
-        """Set the type of a cell."""
+        """Αλλάζει τον τύπο ενός κελιού."""
         if self.is_valid(row, col):
             self.grid[row][col].cell_type = cell_type
 
     def place_vehicle(self, row: int, col: int, vehicle_id: int) -> bool:
-        """Place a vehicle on a cell. Returns True if successful."""
+        """Τοποθετεί ένα όχημα σε ένα κελί. Επιστρέφει True αν πέτυχε."""
         cell = self.get_cell(row, col)
         if cell and cell.is_passable:
             cell.vehicle_id = vehicle_id
@@ -237,26 +242,26 @@ class GridWorld:
         return False
 
     def remove_vehicle(self, row: int, col: int):
-        """Remove a vehicle from a cell."""
+        """Αφαιρεί ένα όχημα από ένα κελί."""
         cell = self.get_cell(row, col)
         if cell:
             cell.vehicle_id = None
             cell.is_occupied = False
 
     def next_road_id(self) -> int:
-        """Generate next unique road ID."""
+        """Παράγει το επόμενο μοναδικό ID δρόμου."""
         rid = self._next_road_id
         self._next_road_id += 1
         return rid
 
     def next_block_id(self) -> int:
-        """Generate next unique block ID."""
+        """Παράγει το επόμενο μοναδικό ID οικοδομικού τετραγώνου."""
         bid = self._next_block_id
         self._next_block_id += 1
         return bid
 
     def register_road(self, road: Road):
-        """Register a road in the world."""
+        """Καταχωρεί (αποθηκεύει) έναν δρόμο μέσα στον κόσμο."""
         self.roads[road.road_id] = road
         for ep in road.entry_points:
             self.border_entries.append(ep)
@@ -264,15 +269,15 @@ class GridWorld:
             self.border_exits.append(ep)
 
     def register_block(self, block: BuildingBlock):
-        """Register a building block in the world."""
+        """Καταχωρεί ένα οικοδομικό τετράγωνο μέσα στον κόσμο."""
         self.blocks[block.block_id] = block
 
     def get_blocks_by_category(self, category: BlockCategory) -> List[BuildingBlock]:
-        """Get all blocks of a specific category."""
+        """Φέρνει όλα τα τετράγωνα μιας συγκεκριμένης κατηγορίας (π.χ. μόνο τα Σπίτια)."""
         return [b for b in self.blocks.values() if b.category == category]
 
     def get_random_block(self, category: Optional[BlockCategory] = None) -> Optional[BuildingBlock]:
-        """Get a random building block, optionally filtered by category."""
+        """Επιλέγει ένα τυχαίο τετράγωνο (προαιρετικά από συγκεκριμένη κατηγορία)."""
         if category:
             candidates = self.get_blocks_by_category(category)
         else:
@@ -282,7 +287,7 @@ class GridWorld:
         return None
 
     def initialize_perimeter_walls(self):
-        """Set up wall cells around the perimeter."""
+        """Στήνει τοίχους (τείχη) στην περίμετρο του χάρτη για να μην βγαίνουν τα οχήματα εκτός."""
         for c in range(self.cols):
             self.grid[0][c].cell_type = CellType.WALL
             self.grid[self.rows - 1][c].cell_type = CellType.WALL
@@ -291,7 +296,7 @@ class GridWorld:
             self.grid[r][self.cols - 1].cell_type = CellType.WALL
 
     def update_block_resources(self):
-        """Update all block resources (called each tick)."""
+        """Ενημερώνει τους πόρους (φαγητό/σκουπίδια) όλων των τετραγώνων. Καλείται σε κάθε tick."""
         fcr = self.config.blocks.food_consumption_rate
         pgr = self.config.blocks.pollution_generation_rate
         for block in self.blocks.values():

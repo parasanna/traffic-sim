@@ -1,6 +1,6 @@
 """
-Main Simulation Engine: Orchestrates the entire simulation.
-Manages the tick loop, time zones, agent lifecycle, and events.
+Κύρια Μηχανή Προσομοίωσης (Main Simulation Engine): Ενορχηστρώνει όλη την προσομοίωση.
+Διαχειρίζεται τον χρόνο (ticks), τα οχήματα, τα γεγονότα, τον καιρό και τα στατιστικά.
 """
 import random
 import time
@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class SimulationStats:
-    """Statistics collected during simulation."""
+    """Στατιστικά που συλλέγονται κατά τη διάρκεια της προσομοίωσης."""
     total_ticks: int = 0
     total_trips_completed: int = 0
     total_breakdowns: int = 0
@@ -48,68 +48,69 @@ class SimulationStats:
             'active_vehicles': self.active_vehicles,
             'food_delivered': round(self.food_delivered, 1),
             'pollution_collected': round(self.pollution_collected, 1),
+            'vehicles_by_type': self.vehicles_by_type,
         }
 
 
 class Simulation:
     """
-    Main simulation engine.
+    Η Κύρια Μηχανή της Προσομοίωσης.
     
-    Orchestrates:
-    - World generation (grid, roads, blocks)
-    - Agent creation and lifecycle
-    - Tick-based simulation loop
-    - Time zone management
-    - Weather and random events
-    - Statistics collection
+    Ελέγχει και ενορχηστρώνει τα πάντα:
+    - Παραγωγή του Κόσμου (πλέγμα, δρόμοι, κτίρια)
+    - Δημιουργία και κύκλος ζωής των Πρακτόρων (Οχήματα)
+    - Τον κεντρικό βρόχο της προσομοίωσης (Tick-based loop)
+    - Διαχείριση Ωρών και Ζωνών (Time zones)
+    - Καιρό και τυχαία Γεγονότα (events)
+    - Συλλογή Στατιστικών
     """
 
     def __init__(self, config: Optional[SimulationConfig] = None):
         self.config = config or SimulationConfig()
         self.rng = random.Random(self.config.random_seed)
 
-        # World
+        # Κόσμος και Πλοήγηση
         self.world: Optional[GridWorld] = None
         self.pathfinder: Optional[Pathfinder] = None
 
-        # Agents
+        # Πράκτορες (Οχήματα)
         self.vehicles: Dict[int, BaseVehicle] = {}
         self.residents: List[ResidentVehicle] = []
         self.transients: List[TransientVehicle] = []
         self.food_trucks: List[FoodTruck] = []
         self.garbage_trucks: List[GarbageTruck] = []
 
-        # Systems
+        # Υποσυστήματα
         self.weather: Optional[WeatherSystem] = None
         self.event_manager: Optional[EventManager] = None
 
-        # Time tracking
+        # Διαχείριση Χρόνου
         self.current_tick: int = 0
-        self.current_hour: int = 6  # Start at 6 AM
+        self.current_hour: int = 6  # Η προσομοίωση ξεκινάει 06:00 το πρωί
         self.current_zone_id: int = 1
         self.ticks_per_hour: int = self.config.world.ticks_per_hour
         self.day: int = 1
 
-        # Statistics
+        # Στατιστικά
         self.stats = SimulationStats()
 
-        # Callbacks for visualization
+        # Συναρτήσεις αναμονής (Callbacks) για ενημέρωση του Dashboard
         self._on_tick_callbacks = []
         self._on_zone_change_callbacks = []
 
-        # State
+        # Κατάσταση (State)
         self.is_initialized = False
         self.is_running = False
         self.is_paused = False
 
     def initialize(self):
-        """Initialize the world, generate roads/blocks, create agents."""
+        """Αρχικοποίηση: δημιουργεί το πλέγμα, τους δρόμους, τα κτίρια και τα οχήματα."""
         logger.info("Initializing simulation world...")
 
-        # Create world
+        # 1. Δημιουργία άδειου κόσμου
         self.world = GridWorld(self.config)
 
-        # Generate road network
+        # 2. Κατασκευή Οδικού Δικτύου
         logger.info("Generating road network...")
         road_gen = RoadNetworkGenerator(self.world, self.config)
         road_gen.generate()
@@ -117,20 +118,20 @@ class Simulation:
                      f"{len(self.world.border_entries)} entries, "
                      f"{len(self.world.border_exits)} exits")
 
-        # Generate building blocks
+        # 3. Κατασκευή Οικοδομικών Τετραγώνων (Κτίρια)
         logger.info("Generating building blocks...")
         block_gen = BlockGenerator(self.world, self.config)
         block_gen.generate()
         logger.info(f"Generated {len(self.world.blocks)} blocks")
 
-        # Create pathfinder
+        # 4. Ενεργοποίηση συστήματος εύρεσης διαδρομών (Pathfinder)
         self.pathfinder = Pathfinder(self.world)
 
-        # Create weather & event systems
+        # 5. Ενεργοποίηση Καιρού και Γεγονότων
         self.weather = WeatherSystem(self.world, self.rng)
         self.event_manager = EventManager(self.world, self.rng)
 
-        # Create agents
+        # 6. Δημιουργία Οχημάτων
         self._create_residents()
         self._create_service_fleets()
 
@@ -141,7 +142,7 @@ class Simulation:
         logger.info(f"  Garbage trucks: {len(self.garbage_trucks)}")
 
     def _create_residents(self):
-        """Create permanent population (P1) vehicles."""
+        """Δημιουργεί τον μόνιμο πληθυσμό (P1) και τον αναθέτει σε σπίτια (Residential)."""
         residential_blocks = self.world.get_blocks_by_category(BlockCategory.RESIDENTIAL)
         if not residential_blocks:
             logger.warning("No residential blocks found!")
@@ -149,15 +150,15 @@ class Simulation:
 
         for i in range(self.config.population.permanent_population):
             vehicle = ResidentVehicle(self.world, self.pathfinder, self.rng)
-            # Assign to a residential block (round-robin)
+            # Αναθέτει το όχημα σε σπίτι (κυκλικά)
             home = residential_blocks[i % len(residential_blocks)]
             vehicle.assign_home(home)
             self.residents.append(vehicle)
             self.vehicles[vehicle.vehicle_id] = vehicle
 
     def _create_service_fleets(self):
-        """Create FOOD and COLLECTION fleet vehicles."""
-        # Food trucks
+        """Δημιουργεί τους στόλους εξυπηρέτησης: Food Trucks και Απορριμματοφόρα."""
+        # Φορτηγά Τροφοδοσίας (Food trucks)
         for i in range(self.config.fleet.food_fleet_size):
             truck = FoodTruck(
                 self.world, self.pathfinder, self.rng,
@@ -167,7 +168,7 @@ class Simulation:
             self.food_trucks.append(truck)
             self.vehicles[truck.vehicle_id] = truck
 
-        # Garbage trucks
+        # Απορριμματοφόρα (Garbage trucks)
         for i in range(self.config.fleet.collection_fleet_size):
             truck = GarbageTruck(
                 self.world, self.pathfinder, self.rng,
@@ -178,54 +179,54 @@ class Simulation:
             self.vehicles[truck.vehicle_id] = truck
 
     def tick(self):
-        """Execute one simulation tick."""
+        """Εκτελεί ένα "βήμα" (Tick) της προσομοίωσης."""
         if not self.is_initialized:
             raise RuntimeError("Simulation not initialized. Call initialize() first.")
 
         self.current_tick += 1
 
-        # Update time
+        # 0. Ενημέρωση Ρολογιού & Ζώνης
         self._update_time()
 
-        # 1. Weather update
+        # 1. Ενημέρωση Καιρού
         self.weather.tick()
 
-        # 2. Update storm effects on vehicles
+        # 2. Εφαρμογή επιπτώσεων καιρού (π.χ. μείωση ταχύτητας στα οχήματα)
         self._apply_weather_effects()
 
-        # 3. Spawn transient traffic based on zone probability
+        # 3. Σπορά διερχόμενης κίνησης (Transient Traffic) βάσει της πιθανότητας της Ζώνης (zone probability)
         self._manage_transient_traffic()
 
-        # 4. All agents decide actions
+        # 4. Απόφαση: Όλα τα οχήματα σκέφτονται τι πρέπει να κάνουν τώρα
         for vehicle in list(self.vehicles.values()):
             if vehicle.is_active() or vehicle.state == VehicleState.PARKED:
                 vehicle.decide_action(self.current_tick, self.current_hour)
 
-        # 5. Move all vehicles
+        # 5. Κίνηση: Όλα τα οχήματα μετακινούνται ένα βήμα μπροστά (ή μειώνουν το χρόνο αναμονής)
         for vehicle in list(self.vehicles.values()):
             if vehicle.state == VehicleState.MOVING:
                 vehicle.tick_move()
             elif vehicle.state in (VehicleState.BROKEN_DOWN, VehicleState.IN_ACCIDENT):
-                vehicle.tick_move()  # Process timer countdown
+                vehicle.tick_move()  # Μείωση του χρονομέτρου για το πότε θα φύγει από το ατύχημα
 
-        # 6. Check random events
+        # 6. Έλεγχος Τυχαίων Γεγονότων (Τρακαρίσματα, Βλάβες)
         self._check_random_events()
 
-        # 7. Update block resources
+        # 7. Ενημέρωση πόρων στα κτίρια (κατανάλωση φαγητού, δημιουργία σκουπιδιών)
         self.world.update_block_resources()
 
-        # 8. Cleanup despawned vehicles
+        # 8. Καθαρισμός των διερχόμενων οχημάτων που βγήκαν από το χάρτη
         self._cleanup_despawned()
 
-        # 9. Update statistics
+        # 9. Ενημέρωση Στατιστικών
         self._update_stats()
 
-        # 10. Notify callbacks
+        # 10. Ειδοποίηση του Dashboard (callbacks)
         for callback in self._on_tick_callbacks:
             callback(self.current_tick, self.stats)
 
     def _update_time(self):
-        """Update simulation time (hour and zone)."""
+        """Ενημερώνει την τρέχουσα ώρα και τη ζώνη δραστηριότητας."""
         ticks_in_hour = self.current_tick % self.ticks_per_hour
         if ticks_in_hour == 0 and self.current_tick > 0:
             self.current_hour = (self.current_hour + 1) % 24
@@ -233,14 +234,14 @@ class Simulation:
                 self.day += 1
                 logger.info(f"Day {self.day} starts")
 
-        # Check zone change
+        # Έλεγχος αν άλλαξε η Ζώνη (Zone)
         new_zone = self._get_zone_id(self.current_hour)
         if new_zone != self.current_zone_id:
             old_zone = self.current_zone_id
             self.current_zone_id = new_zone
             logger.info(f"Zone change: {old_zone} -> {new_zone} (hour {self.current_hour})")
 
-            # Notify residents of zone change
+            # Ειδοποίηση των κατοίκων για αλλαγή ζώνης (π.χ. πρέπει να πάνε στη δουλειά)
             for resident in self.residents:
                 resident.on_zone_change()
 
@@ -248,17 +249,18 @@ class Simulation:
                 callback(old_zone, new_zone)
 
     def _get_zone_id(self, hour: int) -> int:
-        """Get zone ID for a given hour."""
+        """Επιστρέφει το Zone ID (π.χ. Πρωί, Απόγευμα, Βράδυ) για μια συγκεκριμένη ώρα."""
         for zone in self.config.traffic.zones:
             if zone.start_hour <= hour < zone.end_hour:
                 return zone.zone_id
+            # Αν η ζώνη περνάει τα μεσάνυχτα (π.χ. 23:00 - 06:00)
             if zone.start_hour > zone.end_hour:
                 if hour >= zone.start_hour or hour < zone.end_hour:
                     return zone.zone_id
         return 1
 
     def _apply_weather_effects(self):
-        """Apply storm speed reduction to affected vehicles."""
+        """Εφαρμόζει τις μειώσεις ταχύτητας (λόγω καταιγίδας) στα οχήματα που περνούν από μέσα της."""
         for vehicle in self.vehicles.values():
             if vehicle.position:
                 reduction = self.weather.get_speed_reduction_at(
@@ -267,8 +269,7 @@ class Simulation:
                 vehicle._storm_reduction = reduction
 
     def _manage_transient_traffic(self):
-        """Spawn and manage transient (P2) traffic."""
-        # Get current zone's transient probability
+        """Ελέγχει και δημιουργεί την κίνηση των διερχόμενων οχημάτων (P2)."""
         zone = None
         for z in self.config.traffic.zones:
             if z.zone_id == self.current_zone_id:
@@ -278,14 +279,14 @@ class Simulation:
         if not zone:
             return
 
-        # Spawn new transients based on probability
+        # Μέγιστος αριθμός και τρέχων αριθμός
         max_transients = self.config.population.transient_population
         active_transients = sum(1 for t in self.transients if t.is_active())
 
         if active_transients < max_transients:
-            # Spawn multiple transients per tick for denser traffic
+            # Πιθανότητα να δημιουργηθεί όχημα αυτό το tick (βάσει των ρυθμίσεων)
             spawn_prob = zone.transient_probability * 2.0 / self.ticks_per_hour
-            # Try to spawn up to 5 per tick
+            # Προσπαθούμε να βάλουμε μέχρι 5 οχήματα σε κάθε tick
             for _ in range(5):
                 if active_transients >= max_transients:
                     break
@@ -297,23 +298,24 @@ class Simulation:
                         active_transients += 1
 
     def _check_random_events(self):
-        """Check for breakdowns and accidents."""
+        """Ελέγχει αν συνέβη κάποια Βλάβη ή κάποιο Ατύχημα."""
         active_vehicles = [v for v in self.vehicles.values()
                           if v.state == VehicleState.MOVING]
 
-        # Check breakdowns
+        # 1. Έλεγχος Βλαβών
         for vehicle in active_vehicles:
             if self.event_manager.check_breakdown(vehicle):
                 self.stats.total_breakdowns += 1
 
-        # Check accidents (pairwise - only nearby vehicles)
+        # 2. Έλεγχος Ατυχημάτων (Συγκρίνει ζεύγη κοντινών οχημάτων)
         for i, v1 in enumerate(active_vehicles):
             if not v1.position:
                 continue
             for v2 in active_vehicles[i+1:]:
                 if not v2.position:
                     continue
-                # Only check if nearby
+                
+                # Υπολογισμός απόστασης (Manhattan Distance). Αν είναι > 2 δεν τρακάρουν
                 dist = (abs(v1.position[0] - v2.position[0]) +
                         abs(v1.position[1] - v2.position[1]))
                 if dist <= 2:
@@ -321,9 +323,8 @@ class Simulation:
                         self.stats.total_accidents += 1
 
     def _cleanup_despawned(self):
-        """Remove despawned transient vehicles from tracking."""
+        """Διαγράφει από τη μνήμη τα οχήματα που βγήκαν εκτός χάρτη για να ελαφρύνει ο υπολογιστής."""
         self.transients = [t for t in self.transients if t.state != VehicleState.DESPAWNED]
-        # Remove from vehicles dict too
         despawned = [vid for vid, v in self.vehicles.items()
                     if v.state == VehicleState.DESPAWNED and
                     v.vehicle_type == VehicleType.TRANSIENT]
@@ -331,14 +332,14 @@ class Simulation:
             del self.vehicles[vid]
 
     def _update_stats(self):
-        """Update simulation statistics."""
+        """Ενημερώνει τα κεντρικά Στατιστικά της προσομοίωσης."""
         self.stats.total_ticks = self.current_tick
         self.stats.active_vehicles = sum(1 for v in self.vehicles.values()
                                           if v.is_active())
         self.stats.total_trips_completed = sum(v.total_trips for v in self.vehicles.values())
         self.stats.total_storms = len(self.weather.storms)
 
-        # Count by type
+        # Μέτρημα ανά τύπο οχήματος
         self.stats.vehicles_by_type = {}
         for v in self.vehicles.values():
             vtype = v.vehicle_type.value
@@ -349,12 +350,12 @@ class Simulation:
     def run(self, ticks: int = 1000, real_time: bool = False,
             tick_delay: float = 0.0):
         """
-        Run the simulation for a number of ticks.
+        Τρέχει τον κεντρικό βρόχο (loop) της προσομοίωσης.
         
         Args:
-            ticks: Number of ticks to run
-            real_time: If True, add delays between ticks
-            tick_delay: Delay in seconds between ticks (if real_time)
+            ticks: Αριθμός ticks που θα τρέξει συνολικά
+            real_time: Αν είναι True, προσθέτει καθυστέρηση ανάμεσα στα ticks
+            tick_delay: Καθυστέρηση σε δευτερόλεπτα
         """
         if not self.is_initialized:
             self.initialize()
@@ -374,7 +375,7 @@ class Simulation:
                 if real_time and tick_delay > 0:
                     time.sleep(tick_delay)
 
-                # Log progress every 100 ticks
+                # Τυπώνει πρόοδο στην κονσόλα κάθε 100 ticks
                 if self.current_tick % 100 == 0:
                     logger.info(f"Tick {self.current_tick}: "
                                  f"active={self.stats.active_vehicles}, "
@@ -390,29 +391,29 @@ class Simulation:
         return self.stats
 
     def pause(self):
-        """Pause the simulation."""
+        """Παύση της προσομοίωσης."""
         self.is_paused = True
 
     def resume(self):
-        """Resume the simulation."""
+        """Συνέχιση της προσομοίωσης."""
         self.is_paused = False
 
     def stop(self):
-        """Stop the simulation."""
+        """Τερματισμός της προσομοίωσης."""
         self.is_running = False
 
     def on_tick(self, callback):
-        """Register a callback for each tick."""
+        """Εγγραφή συνάρτησης για εκτέλεση σε κάθε tick."""
         self._on_tick_callbacks.append(callback)
 
     def on_zone_change(self, callback):
-        """Register a callback for zone changes."""
+        """Εγγραφή συνάρτησης για εκτέλεση όταν αλλάζει η ώρα/ζώνη."""
         self._on_zone_change_callbacks.append(callback)
 
     def get_grid_state(self) -> List[List[dict]]:
         """
-        Get the current state of the grid for visualization.
-        Returns a 2D array of cell state dictionaries.
+        Επιστρέφει την τρέχουσα κατάσταση όλου του πλέγματος (δρόμοι, κτίρια, κλπ) 
+        σε μορφή JSON για το Dashboard (Frontend).
         """
         state = []
         for r in range(self.world.rows):
@@ -435,7 +436,7 @@ class Simulation:
         return state
 
     def get_vehicle_positions(self) -> List[dict]:
-        """Get positions of all active vehicles for visualization."""
+        """Επιστρέφει τις συντεταγμένες όλων των οχημάτων (για να ζωγραφιστούν στον Browser)."""
         positions = []
         for vehicle in self.vehicles.values():
             if vehicle.position and vehicle.is_active():

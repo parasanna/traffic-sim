@@ -1,5 +1,6 @@
 """
-Events module: Weather (storms), breakdowns, and accidents.
+Μονάδα Συμβάντων (Events module): Διαχειρίζεται τα τυχαία γεγονότα του συστήματος.
+Περιλαμβάνει τον Καιρό (Καταιγίδες/Κυκλώνες), τις Βλάβες, και τα Ατυχήματα.
 """
 import random
 import math
@@ -11,24 +12,25 @@ from agents.base_agent import BaseVehicle, VehicleState
 
 @dataclass
 class Storm:
-    """A storm affecting a circular area on the grid."""
+    """Μία καταιγίδα που επηρεάζει μια κυκλική περιοχή στον χάρτη."""
     storm_id: int
-    center: Tuple[int, int]   # (row, col)
-    radius: int               # SR - effect radius
-    speed_reduction: int      # VR - speed reduction
-    duration: int             # Ticks remaining
+    center: Tuple[int, int]   # (γραμμή, στήλη) - το κέντρο της καταιγίδας
+    radius: int               # SR - η ακτίνα επιρροής της καταιγίδας
+    speed_reduction: int      # VR - η μείωση ταχύτητας για τα οχήματα που είναι μέσα
+    duration: int             # Πόσα Ticks απομένουν μέχρι να σταματήσει
     active: bool = True
 
     def affects_position(self, row: int, col: int) -> bool:
-        """Check if a position is within the storm's radius."""
+        """Ελέγχει αν μια συγκεκριμένη θέση βρίσκεται μέσα στην ακτίνα της καταιγίδας."""
         if not self.active:
             return False
+        # Πυθαγόρειο θεώρημα για τον υπολογισμό της απόστασης
         dist = math.sqrt((row - self.center[0])**2 + (col - self.center[1])**2)
         return dist <= self.radius
 
 
 class WeatherSystem:
-    """Manages weather events (storms) in the simulation."""
+    """Διαχειρίζεται τα καιρικά φαινόμενα (Καταιγίδες) στην προσομοίωση."""
 
     def __init__(self, world: GridWorld, rng: random.Random):
         self.world = world
@@ -41,27 +43,27 @@ class WeatherSystem:
         self.storm_probability = world.config.weather.storm_probability
 
     def tick(self):
-        """Update weather each tick."""
-        # Update existing storms
+        """Ενημερώνει τον καιρό σε κάθε tick (χρονικό βήμα) της προσομοίωσης."""
+        # Ενημέρωση υπαρχουσών καταιγίδων
         for storm in self.storms:
             if storm.active:
                 storm.duration -= 1
                 if storm.duration <= 0:
-                    storm.active = False
+                    storm.active = False # Η καταιγίδα τελείωσε
 
-        # Remove inactive storms
+        # Καθαρισμός λίστας από ανενεργές καταιγίδες
         self.storms = [s for s in self.storms if s.active]
 
-        # Maybe spawn new storm
+        # Πιθανή δημιουργία νέας καταιγίδας
         if len(self.storms) < self.max_storms:
             if self.rng.random() < self.storm_probability:
                 self._spawn_storm()
 
     def _spawn_storm(self):
-        """Spawn a new storm at a random position."""
+        """Δημιουργεί μια νέα καταιγίδα σε τυχαία θέση στο χάρτη."""
         row = self.rng.randint(0, self.world.rows - 1)
         col = self.rng.randint(0, self.world.cols - 1)
-        duration = self.rng.randint(20, 100)  # Storm lasts 20-100 ticks
+        duration = self.rng.randint(20, 100)  # Η καταιγίδα κρατάει από 20 έως 100 ticks
 
         storm = Storm(
             storm_id=self._next_storm_id,
@@ -74,7 +76,7 @@ class WeatherSystem:
         self._next_storm_id += 1
 
     def get_speed_reduction_at(self, row: int, col: int) -> int:
-        """Get total speed reduction at a position from all storms."""
+        """Επιστρέφει τη συνολική μείωση ταχύτητας για ένα όχημα σε αυτή τη θέση (λόγω καιρού)."""
         reduction = 0
         for storm in self.storms:
             if storm.affects_position(row, col):
@@ -83,7 +85,7 @@ class WeatherSystem:
 
 
 class EventManager:
-    """Manages random events: breakdowns and accidents."""
+    """Διαχειρίζεται τα τυχαία γεγονότα κυκλοφορίας: Βλάβες (Breakdowns) και Ατυχήματα (Accidents)."""
 
     def __init__(self, world: GridWorld, rng: random.Random):
         self.world = world
@@ -92,9 +94,10 @@ class EventManager:
 
     def check_breakdown(self, vehicle: BaseVehicle) -> bool:
         """
-        Check if a vehicle has a breakdown.
-        Probability: PMF per tick.
+        Ελέγχει αν το όχημα θα πάθει βλάβη.
+        Πιθανότητα: PMF ανά tick.
         """
+        # Αν έχει ήδη βλάβη, ατύχημα ή είναι παρκαρισμένο, αγνόησέ το
         if vehicle.state in (VehicleState.BROKEN_DOWN, VehicleState.IN_ACCIDENT,
                               VehicleState.PARKED, VehicleState.DESPAWNED):
             return False
@@ -102,12 +105,12 @@ class EventManager:
         if self.rng.random() < self.config.breakdown_probability:
             duration = self.config.breakdown_duration
 
-            # If it's a service vehicle (FOOD/COLLECTION) at a block,
-            # duration is proportional to block area
+            # Εάν είναι όχημα εξυπηρέτησης (Φορτηγό Φαγητού / Απορριμματοφόρο) και είναι σε τετράγωνο
+            # Η διάρκεια της βλάβης είναι ανάλογη του μεγέθους του τετραγώνου
             if vehicle.position:
                 cell = self.world.get_cell(vehicle.position[0], vehicle.position[1])
                 if cell:
-                    # Check nearby blocks for service vehicle breakdown
+                    # Ψάχνει τα γειτονικά κελιά για να δει αν υπάρχει οικοδομικό τετράγωνο
                     for neighbor in self.world.get_neighbors(
                             vehicle.position[0], vehicle.position[1]):
                         if neighbor.block:
@@ -127,12 +130,11 @@ class EventManager:
 
     def check_accident(self, vehicle1: BaseVehicle, vehicle2: BaseVehicle) -> bool:
         """
-        Check if two vehicles have an accident.
-        Conditions:
-        1. Opposite lanes on same road
-        2. Adjacent to road center
-        3. In Moore neighborhood of each other
-        Probability: PA when conditions met.
+        Ελέγχει αν δύο οχήματα θα τρακάρουν.
+        Προϋποθέσεις για να συμβεί:
+        1. Να είναι σε αντίθετες λωρίδες στον ίδιο δρόμο.
+        2. Να βρίσκονται στις εσωτερικές λωρίδες (κοντά στο κέντρο του δρόμου).
+        3. Να είναι σε γειτονιά Moore (δηλαδή το ένα δίπλα/διαγώνια στο άλλο).
         """
         if not vehicle1.position or not vehicle2.position:
             return False
@@ -140,7 +142,7 @@ class EventManager:
         pos1 = vehicle1.position
         pos2 = vehicle2.position
 
-        # Check Moore neighborhood
+        # Έλεγχος γειτονιάς Moore (Πρέπει να είναι δίπλα-δίπλα)
         if not self._in_moore_neighborhood(pos1, pos2):
             return False
 
@@ -150,15 +152,15 @@ class EventManager:
         if not cell1 or not cell2:
             return False
 
-        # Must be on same road
+        # Πρέπει να βρίσκονται στον ίδιο δρόμο
         if cell1.road_id is None or cell1.road_id != cell2.road_id:
             return False
 
-        # Must be in opposite directions
+        # Πρέπει να κινούνται σε αντίθετες κατευθύνσεις
         if (cell1.lane_direction and cell2.lane_direction and
                 cell1.lane_direction == cell2.lane_direction.opposite):
 
-            # Must be adjacent to road center (lanes touching)
+            # Πρέπει να βρίσκονται στις λωρίδες δίπλα στο διαχωριστικό (κέντρο δρόμου)
             if self._lanes_adjacent_to_center(pos1, pos2, cell1.road_id):
                 if self.rng.random() < self.config.accident_probability:
                     vehicle1.trigger_accident(self.config.accident_duration)
@@ -169,7 +171,7 @@ class EventManager:
 
     def _in_moore_neighborhood(self, pos1: Tuple[int, int],
                                 pos2: Tuple[int, int]) -> bool:
-        """Check if two positions are in Moore neighborhood (8-connected)."""
+        """Ελέγχει αν 2 θέσεις ανήκουν σε γειτονιά Moore (8 κατευθύνσεων)."""
         return (abs(pos1[0] - pos2[0]) <= 1 and
                 abs(pos1[1] - pos2[1]) <= 1 and
                 pos1 != pos2)
@@ -177,20 +179,20 @@ class EventManager:
     def _lanes_adjacent_to_center(self, pos1: Tuple[int, int],
                                    pos2: Tuple[int, int],
                                    road_id: int) -> bool:
-        """Check if two positions are in lanes adjacent to road center."""
+        """Ελέγχει αν δύο θέσεις είναι σε λωρίδες που συνορεύουν με το κέντρο του δρόμου."""
         road = self.world.roads.get(road_id)
         if not road:
             return False
 
-        # For R1 (4 wide) and R2 (2 wide), the center lanes are adjacent
-        # This is a simplification - check if they're in adjacent columns/rows
+        # Για δρόμους R1 (4 λωρίδες) και R2 (2 λωρίδες), οι κεντρικές λωρίδες συνορεύουν.
+        # Απλοποίηση: Ελέγχουμε απλά αν τα κελιά είναι δίπλα το ένα στο άλλο (άρα συνορεύουν)
         return (abs(pos1[0] - pos2[0]) <= 1 and abs(pos1[1] - pos2[1]) <= 1)
 
     def _handle_breakdown_traffic(self, vehicle: BaseVehicle):
         """
-        Handle traffic effects of a breakdown.
-        - On R3 (one-way): blocks traffic for the duration
-        - On R1/R2: vehicles can use opposite lane
+        Χειρίζεται τις επιπτώσεις μιας βλάβης στην κυκλοφορία.
+        - Σε δρόμους R3 (Μονόδρομους): Μπλοκάρει τελείως η κυκλοφορία από πίσω
+        - Σε R1/R2: Τα οχήματα αναγκάζονται να αλλάξουν λωρίδα (ή ρεύμα)
         """
         if not vehicle.position:
             return
@@ -203,7 +205,6 @@ class EventManager:
         if not road:
             return
 
-        # R3 one-way streets get completely blocked
-        # (vehicles behind will need to wait or re-route)
-        # This is handled naturally by the movement system -
-        # the broken vehicle blocks the cell
+        # Στους μονόδρομους (R3), η κυκλοφορία μπλοκάρεται ολοσχερώς.
+        # Αυτό το χειρίζεται αυτόματα το σύστημα κίνησης του κώδικα (tick_move)
+        # αφού το κελί παραμένει "πιασμένο" και τα από πίσω οχήματα σταματούν.

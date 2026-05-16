@@ -1,6 +1,7 @@
 """
-Building Blocks Generator: Creates and places building blocks on the grid.
-Handles block categories, entry points, and resource initialization.
+Γεννήτρια Οικοδομικών Τετραγώνων (Building Blocks Generator): Δημιουργεί και τοποθετεί
+τα τετράγωνα-κτίρια πάνω στο πλέγμα του χάρτη.
+Χειρίζεται τις κατηγορίες τους, τις πόρτες εισόδου και την αρχικοποίηση των πόρων.
 """
 import random
 from typing import List, Tuple, Optional, Set, Dict
@@ -12,8 +13,8 @@ from config import SimulationConfig
 
 class BlockGenerator:
     """
-    Generates building blocks to fill the spaces between roads.
-    Each block has a category, entry point, and resource capacities.
+    Δημιουργεί οικοδομικά τετράγωνα για να γεμίσει τους κενούς χώρους ανάμεσα στους δρόμους.
+    Κάθε τετράγωνο ανήκει σε μια κατηγορία, έχει πόρτα, και χωρητικότητα για πόρους.
     """
 
     def __init__(self, world: GridWorld, config: SimulationConfig):
@@ -22,27 +23,27 @@ class BlockGenerator:
         self.rng = random.Random(config.random_seed + 2)
 
     def generate(self):
-        """Generate all building blocks in the grid."""
-        # Step 1: Find all connected regions of EMPTY cells (spaces between roads)
+        """Δημιουργεί όλα τα οικοδομικά τετράγωνα στο πλέγμα."""
+        # Βήμα 1: Εντοπισμός όλων των περιοχών με συνεχόμενα άδεια (EMPTY) κελιά (τα κενά μεταξύ των δρόμων)
         empty_regions = self._find_empty_regions()
 
-        # Step 2: Filter out tiny regions (not big enough for blocks)
-        min_block_size = 4  # Minimum cells for a block
+        # Βήμα 2: Φιλτράρισμα μικρών περιοχών (αγνοούμε τις πολύ μικρές τρύπες)
+        min_block_size = 4  # Ελάχιστος αριθμός κελιών για να φτιαχτεί κτίριο
         valid_regions = [r for r in empty_regions if len(r) >= min_block_size]
 
-        # Step 3: Assign categories based on distribution
+        # Βήμα 3: Εκχώρηση κατηγοριών (Σπίτια, Γραφεία κλπ) βάσει των ποσοστών που ορίσαμε
         categories = self._assign_categories(len(valid_regions))
 
-        # Step 4: Create blocks
+        # Βήμα 4: Δημιουργία των τετραγώνων
         for i, (region, category) in enumerate(zip(valid_regions, categories)):
             self._create_block(region, category)
 
     def _find_empty_regions(self) -> List[Set[Tuple[int, int]]]:
-        """Find connected regions of EMPTY cells using flood fill."""
+        """Εντοπίζει περιοχές από συνεχόμενα άδεια κελιά, χρησιμοποιώντας τον αλγόριθμο 'Flood Fill'."""
         visited = set()
         regions = []
 
-        for r in range(1, self.world.rows - 1):  # Skip border walls
+        for r in range(1, self.world.rows - 1):  # Προσπερνάμε τους εξωτερικούς τοίχους
             for c in range(1, self.world.cols - 1):
                 if (r, c) in visited:
                     continue
@@ -51,7 +52,7 @@ class BlockGenerator:
                     visited.add((r, c))
                     continue
 
-                # Flood fill to find connected region
+                # Αλγόριθμος Flood Fill για να βρούμε όλα τα διπλανά άδεια κελιά (σαν να ρίχνουμε "κουβά με χρώμα")
                 region = set()
                 stack = [(r, c)]
                 while stack:
@@ -68,7 +69,7 @@ class BlockGenerator:
                     visited.add((cr, cc))
                     region.add((cr, cc))
 
-                    # Check 4-connected neighbors
+                    # Έλεγχος των 4 γειτόνων
                     for dr, dc in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
                         nr, nc = cr + dr, cc + dc
                         if (nr, nc) not in visited and self.world.is_valid(nr, nc):
@@ -80,11 +81,11 @@ class BlockGenerator:
         return regions
 
     def _assign_categories(self, count: int) -> List[BlockCategory]:
-        """Assign block categories based on configured distribution."""
+        """Εκχωρεί κατηγορίες στα τετράγωνα με βάση την κατανομή που έχουμε στις ρυθμίσεις."""
         dist = self.config.blocks.block_distribution
         categories = []
 
-        # Calculate counts for each category
+        # Υπολογισμός του πλήθους για κάθε κατηγορία (π.χ. 25% Κατοικίες = 0.25 * πλήθος)
         cat_counts = {
             BlockCategory.RESIDENTIAL: int(count * dist["residential"]),
             BlockCategory.OFFICE: int(count * dist["office"]),
@@ -93,7 +94,7 @@ class BlockGenerator:
             BlockCategory.OTHER: int(count * dist["other"]),
         }
 
-        # Fill remainder with random categories
+        # Συμπλήρωση των υπολοίπων (λόγω στρογγυλοποίησης) με τυχαίες κατηγορίες
         total = sum(cat_counts.values())
         remaining = count - total
         all_cats = list(BlockCategory)
@@ -104,18 +105,18 @@ class BlockGenerator:
         for _ in range(remaining):
             categories.append(self.rng.choice(all_cats))
 
-        self.rng.shuffle(categories)
+        self.rng.shuffle(categories) # Ανακάτεμα για να μοιραστούν τυχαία στο χάρτη
         return categories[:count]
 
     def _create_block(self, region: Set[Tuple[int, int]], category: BlockCategory):
-        """Create a building block from a region of cells."""
+        """Δημιουργεί το αντικείμενο ενός οικοδομικού τετραγώνου από μία περιοχή κελιών."""
         block_id = self.world.next_block_id()
         cells_list = list(region)
 
-        # Find entry point: a cell on the perimeter that faces a road/sidewalk
+        # Βρίσκει το σημείο εισόδου (την πόρτα): ένα κελί στην περίμετρο που "βλέπει" στο δρόμο
         entry_point, facing_road = self._find_entry_point(region)
 
-        # Calculate resource capacities
+        # Υπολογισμός μέγιστης χωρητικότητας πόρων (βάσει του εμβαδού)
         area = len(cells_list)
         food_cap = area * self.config.blocks.food_capacity_factor
         poll_cap = area * self.config.blocks.pollution_capacity_factor
@@ -126,19 +127,19 @@ class BlockGenerator:
             cells=cells_list,
             entry_point=entry_point,
             facing_road_cell=facing_road,
-            food_level=food_cap * 0.5,  # Start half-full
+            food_level=food_cap * 0.5,  # Ξεκινάει μισογεμάτο με φαγητό
             food_capacity=food_cap,
-            pollution_level=0.0,
+            pollution_level=0.0,        # Ξεκινάει χωρίς σκουπίδια
             pollution_capacity=poll_cap,
         )
 
-        # Mark cells on grid
+        # Μαρκάρισμα των κελιών πάνω στο πλέγμα (Grid)
         for (r, c) in cells_list:
             cell = self.world.grid[r][c]
             cell.cell_type = CellType.BLOCK
             cell.block = block
 
-        # Mark entry point
+        # Μαρκάρισμα του σημείου εισόδου (της πόρτας)
         er, ec = entry_point
         if self.world.is_valid(er, ec):
             entry_cell = self.world.grid[er][ec]
@@ -151,9 +152,9 @@ class BlockGenerator:
     def _find_entry_point(self, region: Set[Tuple[int, int]]
                            ) -> Tuple[Tuple[int, int], Tuple[int, int]]:
         """
-        Find the best entry point for a block.
-        The entry point should be on the block's perimeter facing a road.
-        Returns (entry_point_on_sidewalk, facing_road_cell).
+        Βρίσκει την καλύτερη πόρτα εισόδου για ένα τετράγωνο.
+        Ιδανικά, η πόρτα πρέπει να είναι στην περίμετρο και να συνορεύει με δρόμο.
+        Επιστρέφει: (πόρτα_στο_πεζοδρόμιο, κελί_δρόμου_που_βλέπει).
         """
         perimeter_cells = self._get_perimeter(region)
         best_entry = None
@@ -164,19 +165,19 @@ class BlockGenerator:
                 nr, nc = r + dr, c + dc
                 if not self.world.is_valid(nr, nc):
                     continue
-                # Check for sidewalk (entry point on sidewalk)
+                # Ελέγχει αν το διπλανό κελί είναι πεζοδρόμιο (κατάλληλο για πόρτα)
                 adj_cell = self.world.grid[nr][nc]
                 if adj_cell.cell_type == CellType.SIDEWALK:
-                    # Check if there's a road next to the sidewalk
+                    # Ελέγχει αν δίπλα από το πεζοδρόμιο υπάρχει δρόμος!
                     for dr2, dc2 in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
                         rr, rc = nr + dr2, nc + dc2
                         if not self.world.is_valid(rr, rc):
                             continue
                         road_cell = self.world.grid[rr][rc]
                         if road_cell.cell_type == CellType.ROAD:
-                            return (nr, nc), (rr, rc)
+                            return (nr, nc), (rr, rc) # Βρέθηκε η τέλεια πόρτα!
 
-        # Fallback: use first perimeter cell
+        # Αν δεν βρεθεί η τέλεια πόρτα, δοκιμάζουμε το πρώτο κελί στην περίμετρο (Fallback)
         if perimeter_cells:
             first = list(perimeter_cells)[0]
             for dr, dc in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
@@ -184,12 +185,12 @@ class BlockGenerator:
                 if self.world.is_valid(nr, nc):
                     return (nr, nc), (nr, nc)
 
-        # Ultimate fallback
+        # Ύστατη λύση (Ultimate fallback): οποιοδήποτε κελί
         first = list(region)[0]
         return first, first
 
     def _get_perimeter(self, region: Set[Tuple[int, int]]) -> Set[Tuple[int, int]]:
-        """Get perimeter cells of a region (cells with at least one non-region neighbor)."""
+        """Επιστρέφει τα κελιά που βρίσκονται στην εξωτερική περίμετρο μιας περιοχής (κτιρίου)."""
         perimeter = set()
         for (r, c) in region:
             for dr, dc in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
