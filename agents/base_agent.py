@@ -197,8 +197,14 @@ class BaseVehicle(ABC):
                 self.path_index += 1
                 cells_moved += 1
             else:
-                # Αν βρει μπροστά του άλλο όχημα, φρενάρει αμέσως για να μην τρακάρει (Μποτιλιάρισμα!)
-                break
+                # Αν βρει μπροστά του άλλο όχημα (Μποτιλιάρισμα/Εμπόδιο)
+                # Δοκιμάζει Δυναμικό Προσπέρασμα (Overtaking)
+                if self._attempt_overtake():
+                    # Αν πέτυχε το προσπέρασμα, το path άλλαξε, οπότε θα κουνηθεί στο επόμενο loop
+                    continue
+                else:
+                    # Αν απέτυχε, φρενάρει
+                    break
 
         # 5. Καταγραφή Στατιστικών
         if cells_moved > 0:
@@ -216,6 +222,45 @@ class BaseVehicle(ABC):
                     self.current_path = new_path
                     self.path_index = 0
                     self.ticks_waiting = 0  # Σταματάει να γκρινιάζει, βρήκε άλλη διέξοδο!
+
+    def _attempt_overtake(self) -> bool:
+        """
+        [ΦΑΣΗ 1] Προσπαθεί να κάνει προσπέραση βγαίνοντας από τη λωρίδα του.
+        Ελέγχει αν υπάρχει κενό διπλανό κελί δρόμου για να παρακάμψει το εμπόδιο.
+        """
+        if not self.position or not self.current_path:
+            return False
+            
+        # Χρειάζεται να υπάρχουν τουλάχιστον 2 βήματα μπροστά για να κάνει την παράκαμψη
+        if self.path_index + 2 >= len(self.current_path):
+            return False
+            
+        curr_r, curr_c = self.position
+        next1_r, next1_c = self.current_path[self.path_index + 1] # Το εμπόδιο
+        next2_r, next2_c = self.current_path[self.path_index + 2] # Εκεί που θέλουμε να καταλήξουμε
+        
+        # Ελέγχει τα 4 διπλανά κελιά (πάνω, κάτω, αριστερά, δεξιά)
+        for dr, dc in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+            side_r, side_c = curr_r + dr, curr_c + dc
+            
+            # Αγνοεί το κελί που έχει το εμπόδιο
+            if side_r == next1_r and side_c == next1_c:
+                continue
+                
+            cell = self.world.get_cell(side_r, side_c)
+            # Αν το διπλανό κελί είναι δρόμος και ΔΕΝ έχει όχημα πάνω του
+            if cell and cell.cell_type == CellType.ROAD and not cell.is_occupied:
+                # Ελέγχουμε αν από αυτό το 'side_cell' μπορούμε να πάμε στο 'next2'
+                dist_to_next2 = abs(side_r - next2_r) + abs(side_c - next2_c)
+                if dist_to_next2 == 1:
+                    # Επιτυχία! Τροποποιούμε τη διαδρομή για να κάνει "ζικ-ζακ"
+                    # Εισάγουμε το side_cell ως επόμενο βήμα
+                    self.current_path.insert(self.path_index + 1, (side_r, side_c))
+                    # Βγάζουμε το εμπόδιο από τη διαδρομή
+                    self.current_path.pop(self.path_index + 2)
+                    return True
+                    
+        return False
 
     def trigger_breakdown(self, duration: int):
         """Ενεργοποιεί κατάσταση Βλάβης στο όχημα."""
