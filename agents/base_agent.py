@@ -1,6 +1,6 @@
 """
-Base Agent module: Abstract vehicle agent with common behavior.
-All vehicle types inherit from BaseVehicle.
+Βασικός Πράκτορας (Base Agent module): Η αφηρημένη κλάση (Abstract) για όλα τα οχήματα.
+Εδώ ορίζεται η βασική συμπεριφορά (κίνηση, βλάβες, ατυχήματα) που κληρονομούν όλοι οι τύποι οχημάτων.
 """
 import random
 from abc import ABC, abstractmethod
@@ -12,37 +12,38 @@ from pathfinding import Pathfinder
 
 
 class VehicleState(Enum):
-    """Vehicle operational states."""
-    IDLE = auto()           # Not moving (parked or waiting)
-    MOVING = auto()         # Actively moving along path
-    PARKED = auto()         # Parked at destination
-    BROKEN_DOWN = auto()    # Immobilized due to breakdown
-    IN_ACCIDENT = auto()    # Immobilized due to accident
-    SERVICING = auto()      # At block, delivering/collecting
-    EXITING = auto()        # Leaving the simulation area
-    DESPAWNED = auto()      # Removed from simulation
+    """Καταστάσεις λειτουργίας ενός οχήματος."""
+    IDLE = auto()           # Ακίνητο (παρκαρισμένο ή περιμένει)
+    MOVING = auto()         # Εν κινήσει (ακολουθεί μια διαδρομή)
+    PARKED = auto()         # Παρκαρισμένο στον προορισμό του
+    BROKEN_DOWN = auto()    # Ακινητοποιημένο λόγω βλάβης
+    IN_ACCIDENT = auto()    # Ακινητοποιημένο λόγω ατυχήματος
+    SERVICING = auto()      # Σταματημένο για δουλειά (π.χ. αδειάζει σκουπίδια)
+    EXITING = auto()        # Αποχωρεί από τον χάρτη
+    DESPAWNED = auto()      # Έχει βγει από την προσομοίωση (δεν υπάρχει πια)
 
 
 class VehicleType(Enum):
-    """Types of vehicles in the simulation."""
-    RESIDENT = "resident"       # P1 - Permanent population
-    TRANSIENT = "transient"     # P2 - Passing through
-    FOOD_TRUCK = "food_truck"   # FOOD logistics
-    GARBAGE_TRUCK = "garbage"   # COLLECTION
+    """Οι διάφοροι Τύποι Οχημάτων."""
+    RESIDENT = "resident"       # P1 - Μόνιμος πληθυσμός (πορτοκαλί)
+    TRANSIENT = "transient"     # P2 - Διερχόμενος πληθυσμός (κόκκινο)
+    FOOD_TRUCK = "food_truck"   # Φορτηγό Τροφοδοσίας (γαλάζιο)
+    GARBAGE_TRUCK = "garbage"   # Απορριμματοφόρο (πράσινο)
 
 
 @dataclass
 class MovementEpisode:
-    """A single movement episode (constant speed until stop)."""
-    speed: int               # cells/tick for this episode
-    path: List[Tuple[int, int]]  # Remaining path
-    current_index: int = 0   # Current position in path
+    """Ένα επεισόδιο κίνησης (δηλαδή η κίνηση με σταθερή ταχύτητα μέχρι την επόμενη στάση)."""
+    speed: int                   # Ταχύτητα (κελιά ανά tick) για αυτό το επεισόδιο
+    path: List[Tuple[int, int]]  # Η διαδρομή (λίστα από κελιά) που μένει
+    current_index: int = 0       # Σε ποιο βήμα της διαδρομής βρισκόμαστε
 
 
 class BaseVehicle(ABC):
     """
-    Abstract base class for all vehicles in the simulation.
-    Handles common movement, state management, and event handling.
+    Η αφηρημένη (Abstract) βασική κλάση για όλα τα οχήματα της προσομοίωσης.
+    Αναλαμβάνει την κίνηση στον χάρτη, τη διαχείριση καταστάσεων και τις βλάβες.
+    Όλα τα άλλα οχήματα (Resident, Transient κλπ) "πατάνε" πάνω σε αυτήν (κληρονομικότητα).
     """
 
     _next_id = 0
@@ -56,11 +57,11 @@ class BaseVehicle(ABC):
         self.pathfinder: Pathfinder = pathfinder
         self.rng: random.Random = rng
 
-        # Position
-        self.position: Optional[Tuple[int, int]] = None  # (row, col)
+        # Θέση (Συντεταγμένες)
+        self.position: Optional[Tuple[int, int]] = None  # (γραμμή, στήλη)
         self.state: VehicleState = VehicleState.IDLE
 
-        # Movement
+        # Κίνηση και Ταχύτητα
         self.current_speed: int = 0
         self.max_speed: int = world.config.vehicle.max_speed
         self.min_speed: int = world.config.vehicle.min_speed
@@ -68,16 +69,16 @@ class BaseVehicle(ABC):
         self.path_index: int = 0
         self.current_episode: Optional[MovementEpisode] = None
 
-        # Journey tracking
+        # Στοιχεία Ταξιδιού
         self.origin: Optional[Tuple[int, int]] = None
         self.destination: Optional[Tuple[int, int]] = None
         self.journey_purpose: str = ""
 
-        # Event tracking
+        # Χρονόμετρα Γεγονότων
         self.breakdown_timer: int = 0
         self.accident_timer: int = 0
 
-        # Statistics
+        # Στατιστικά για αυτό το συγκεκριμένο όχημα
         self.total_distance: int = 0
         self.total_trips: int = 0
         self.ticks_moving: int = 0
@@ -85,16 +86,16 @@ class BaseVehicle(ABC):
 
     @abstractmethod
     def decide_action(self, current_tick: int, current_hour: int):
-        """Decide what to do this tick (abstract - implemented by subclasses)."""
+        """Κάθε παιδί-κλάση (π.χ. ResidentVehicle) αποφασίζει μόνη της τι θα κάνει σε κάθε Tick."""
         pass
 
     @abstractmethod
     def on_arrival(self):
-        """Called when vehicle reaches its destination."""
+        """Τι συμβαίνει μόλις το όχημα φτάσει στον προορισμό του."""
         pass
 
     def spawn(self, position: Tuple[int, int]) -> bool:
-        """Spawn vehicle at a position on the grid."""
+        """Εμφάνιση (Spawn) του οχήματος στον χάρτη (πλέγμα)."""
         if self.world.place_vehicle(position[0], position[1], self.vehicle_id):
             self.position = position
             self.state = VehicleState.IDLE
@@ -102,20 +103,21 @@ class BaseVehicle(ABC):
         return False
 
     def despawn(self):
-        """Remove vehicle from the grid."""
+        """Εξαφάνιση (Αφαίρεση) του οχήματος από τον χάρτη."""
         if self.position:
             self.world.remove_vehicle(self.position[0], self.position[1])
         self.position = None
         self.state = VehicleState.DESPAWNED
 
     def start_journey(self, destination: Tuple[int, int], purpose: str = "") -> bool:
-        """Start a journey to a destination."""
+        """Ξεκινάει ένα ταξίδι προς έναν προορισμό υπολογίζοντας τη διαδρομή."""
         if not self.position:
             return False
 
+        # Εύρεση ιδανικής διαδρομής (A* Algorithm)
         path = self.pathfinder.find_path(self.position, destination)
         if not path:
-            # Try relaxed pathfinding
+            # Αν δεν βρει, δοκιμάζει πιο "χαλαρή" αναζήτηση
             path = self.pathfinder.find_path_relaxed(self.position, destination)
         if not path:
             return False
@@ -126,15 +128,15 @@ class BaseVehicle(ABC):
         self.journey_purpose = purpose
         self.state = VehicleState.MOVING
 
-        # Start new movement episode with random speed
+        # Ξεκινάει το πρώτο επεισόδιο κίνησης
         self._start_new_episode()
         return True
 
     def _start_new_episode(self):
-        """Start a new movement episode with random speed."""
+        """Επιλέγει μια νέα τυχαία ταχύτητα για αυτό το τμήμα της διαδρομής."""
         speed = self.rng.randint(self.min_speed, self.max_speed)
 
-        # Apply weather effects
+        # Μείωση ταχύτητας αν υπάρχει καταιγίδα
         storm_reduction = self._get_storm_speed_reduction()
         speed = max(1, speed - storm_reduction)
 
@@ -147,12 +149,12 @@ class BaseVehicle(ABC):
             )
 
     def _get_storm_speed_reduction(self) -> int:
-        """Check if vehicle is affected by storm. Returns speed reduction."""
-        # This will be set by the simulation engine based on weather
+        """Επιστρέφει πόσο πρέπει να φρενάρει αν πέτυχε καταιγίδα (ενημερώνεται από το engine)."""
         return getattr(self, '_storm_reduction', 0)
 
     def tick_move(self):
-        """Execute one tick of movement."""
+        """Εκτελεί την κίνηση του οχήματος για το τρέχον Tick."""
+        # 1. Αν έχει βλάβη, απλά περιμένει να λήξει ο χρόνος
         if self.state == VehicleState.BROKEN_DOWN:
             self.breakdown_timer -= 1
             if self.breakdown_timer <= 0:
@@ -160,6 +162,7 @@ class BaseVehicle(ABC):
                 self._start_new_episode()
             return
 
+        # 2. Αν είχε ατύχημα, απλά περιμένει να λήξει ο χρόνος
         if self.state == VehicleState.IN_ACCIDENT:
             self.accident_timer -= 1
             if self.accident_timer <= 0:
@@ -167,15 +170,16 @@ class BaseVehicle(ABC):
                 self._start_new_episode()
             return
 
+        # 3. Αν δεν κινείται, δεν κάνει τίποτα
         if self.state != VehicleState.MOVING or not self.current_path:
             self.ticks_waiting += 1
             return
 
-        # Move up to current_speed cells
+        # 4. Προσπαθεί να κινηθεί όσα κελιά του επιτρέπει η ταχύτητά του (current_speed)
         cells_moved = 0
         for _ in range(self.current_speed):
             if self.path_index >= len(self.current_path) - 1:
-                # Reached destination
+                # Έφτασε στον προορισμό του
                 self.state = VehicleState.IDLE
                 self.on_arrival()
                 self.total_trips += 1
@@ -185,7 +189,7 @@ class BaseVehicle(ABC):
             next_cell = self.world.get_cell(next_pos[0], next_pos[1])
 
             if next_cell and not next_cell.is_occupied:
-                # Move to next cell
+                # Αν το επόμενο κελί είναι άδειο, προχωράει
                 if self.position:
                     self.world.remove_vehicle(self.position[0], self.position[1])
                 self.world.place_vehicle(next_pos[0], next_pos[1], self.vehicle_id)
@@ -193,29 +197,40 @@ class BaseVehicle(ABC):
                 self.path_index += 1
                 cells_moved += 1
             else:
-                # Blocked - stop for this tick
+                # Αν βρει μπροστά του άλλο όχημα, φρενάρει αμέσως για να μην τρακάρει (Μποτιλιάρισμα!)
                 break
 
+        # 5. Καταγραφή Στατιστικών
         if cells_moved > 0:
             self.total_distance += cells_moved
             self.ticks_moving += 1
+            self.ticks_waiting = 0  # Μηδενισμός αναμονής αφού κινήθηκε
         else:
             self.ticks_waiting += 1
+            
+            # Μηχανισμός Απεγκλωβισμού (Re-routing): 
+            # Αν είναι μπλοκαρισμένο για πολλά ticks (π.χ. 15), προσπαθεί να βρει άλλη διαδρομή
+            if self.ticks_waiting > 15 and self.destination:
+                new_path = self.pathfinder.find_path_relaxed(self.position, self.destination)
+                if new_path:
+                    self.current_path = new_path
+                    self.path_index = 0
+                    self.ticks_waiting = 0  # Σταματάει να γκρινιάζει, βρήκε άλλη διέξοδο!
 
     def trigger_breakdown(self, duration: int):
-        """Trigger a vehicle breakdown."""
+        """Ενεργοποιεί κατάσταση Βλάβης στο όχημα."""
         self.state = VehicleState.BROKEN_DOWN
         self.breakdown_timer = duration
         self.current_speed = 0
 
     def trigger_accident(self, duration: int):
-        """Trigger a vehicle accident."""
+        """Ενεργοποιεί κατάσταση Ατυχήματος στο όχημα."""
         self.state = VehicleState.IN_ACCIDENT
         self.accident_timer = duration
         self.current_speed = 0
 
     def is_active(self) -> bool:
-        """Check if vehicle is currently active in the simulation."""
+        """Ελέγχει αν το όχημα βρίσκεται ενεργό στον χάρτη (και όχι εξαφανισμένο/παρκαρισμένο)."""
         return self.state not in (VehicleState.DESPAWNED, VehicleState.PARKED)
 
     def __repr__(self) -> str:

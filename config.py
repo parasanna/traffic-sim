@@ -90,9 +90,9 @@ class WeatherConfig:
 @dataclass
 class EventConfig:
     """Παράμετροι τυχαίων γεγονότων (Random event parameters)."""
-    breakdown_probability: float = 0.002   # PMF - Πιθανότητα βλάβης ανά tick ανά όχημα
+    breakdown_probability: float = 0.00005 # PMF - Δραστική μείωση (ήταν 0.002) για ρεαλισμό και αποφυγή ατέλειωτων μποτιλιαρισμάτων
     breakdown_duration: int = 30           # MD - Χρόνος (σε ticks) για επισκευή/παραμονή στο δρόμο
-    accident_probability: float = 0.001    # PA - Πιθανότητα ατυχήματος όταν πληρούνται οι προϋποθέσεις
+    accident_probability: float = 0.0001   # PA - Δραστική μείωση (ήταν 0.001)
     accident_duration: int = 50            # AD - Χρόνος (σε ticks) ακινητοποίησης λόγω ατυχήματος
     service_breakdown_factor: float = 1.0  # SD - Συντελεστής για βλάβη οχημάτων υπηρεσίας (ανάλογος του εμβαδού του block)
 
