@@ -84,6 +84,11 @@ class BaseVehicle(ABC):
         self.ticks_moving: int = 0
         self.ticks_waiting: int = 0
 
+        # [ΜΕΤΡΙΚΕΣ] Καταγραφή χρόνων ταξιδιών
+        self.trip_start_tick: int = 0        # Πότε ξεκίνησε το τρέχον ταξίδι
+        self.trip_start_distance: int = 0    # Απόσταση στο ξεκίνημα (για μέτρηση μήκους)
+        self.completed_trip_times: list = [] # Λίστα: [(χρόνος_ταξιδιού, απόσταση_ταξιδιού), ...]
+
     @abstractmethod
     def decide_action(self, current_tick: int, current_hour: int):
         """Κάθε παιδί-κλάση (π.χ. ResidentVehicle) αποφασίζει μόνη της τι θα κάνει σε κάθε Tick."""
@@ -127,6 +132,10 @@ class BaseVehicle(ABC):
         self.destination = destination
         self.journey_purpose = purpose
         self.state = VehicleState.MOVING
+
+        # [ΜΕΤΡΙΚΕΣ] Καταγραφή στιγμής εκκίνησης
+        self.trip_start_tick = getattr(self, '_current_tick', 0)
+        self.trip_start_distance = self.total_distance
 
         # Ξεκινάει το πρώτο επεισόδιο κίνησης
         self._start_new_episode()
@@ -183,6 +192,13 @@ class BaseVehicle(ABC):
                 self.state = VehicleState.IDLE
                 self.on_arrival()
                 self.total_trips += 1
+
+                # [ΜΕΤΡΙΚΕΣ] Καταγραφή χρόνου & απόστασης ταξιδιού
+                trip_duration = getattr(self, '_current_tick', 0) - self.trip_start_tick
+                trip_distance = self.total_distance - self.trip_start_distance
+                if trip_duration > 0:
+                    self.completed_trip_times.append((trip_duration, trip_distance))
+
                 return
 
             next_pos = self.current_path[self.path_index + 1]

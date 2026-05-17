@@ -39,6 +39,15 @@ class SimulationStats:
     avg_trip_duration: float = 0.0
     vehicles_by_type: Dict[str, int] = field(default_factory=dict)
 
+    # [ΜΕΤΡΙΚΕΣ ΠΡΟΒΛΗΜΑΤΟΣ] - 5 Μετρικές από τις Προδιαγραφές
+    avg_transit_time: float = 0.0           # Μ1: Μέσος χρόνος διαδρομής - Διερχόμενοι
+    avg_resident_time: float = 0.0          # Μ2: Μέσος χρόνος διαδρομής - Κάτοικοι
+    avg_transit_time_per_dist: float = 0.0  # Μ3: Μέσος χρόνος ανά μονάδα μήκους - Διερχόμενοι
+    avg_resident_time_per_dist: float = 0.0 # Μ4: Μέσος χρόνος ανά μονάδα μήκους - Κάτοικοι
+    transit_flow_diff: int = 0              # Μ5: Συνολική διαφορά ροής - Διερχόμενοι
+    transit_entered: int = 0                # Πόσοι μπήκαν
+    transit_exited: int = 0                 # Πόσοι βγήκαν
+
     def to_dict(self) -> dict:
         return {
             'total_ticks': self.total_ticks,
@@ -50,6 +59,14 @@ class SimulationStats:
             'food_delivered': round(self.food_delivered, 1),
             'pollution_collected': round(self.pollution_collected, 1),
             'vehicles_by_type': self.vehicles_by_type,
+            # Μετρικές Προβλήματος
+            'avg_transit_time': round(self.avg_transit_time, 2),
+            'avg_resident_time': round(self.avg_resident_time, 2),
+            'avg_transit_time_per_dist': round(self.avg_transit_time_per_dist, 2),
+            'avg_resident_time_per_dist': round(self.avg_resident_time_per_dist, 2),
+            'transit_flow_diff': self.transit_flow_diff,
+            'transit_entered': self.transit_entered,
+            'transit_exited': self.transit_exited,
         }
 
 
@@ -214,6 +231,7 @@ class Simulation:
 
         # 4. Απόφαση: Όλα τα οχήματα σκέφτονται τι πρέπει να κάνουν τώρα
         for vehicle in list(self.vehicles.values()):
+            vehicle._current_tick = self.current_tick  # [ΜΕΤΡΙΚΕΣ] Ενημέρωση χρόνου
             if vehicle.is_active() or vehicle.state == VehicleState.PARKED:
                 vehicle.decide_action(self.current_tick, self.current_hour)
 
@@ -374,6 +392,17 @@ class Simulation:
 
     def _cleanup_despawned(self):
         """Διαγράφει από τη μνήμη τα οχήματα που βγήκαν εκτός χάρτη για να ελαφρύνει ο υπολογιστής."""
+        # [ΜΕΤΡΙΚΕΣ] Καταγραφή χρόνων transit πριν διαγραφούν
+        if not hasattr(self, '_transit_records'):
+            self._transit_records = []  # [(χρόνος, απόσταση), ...]
+            self._transit_total_entered = 0
+            self._transit_total_exited = 0
+
+        for t in self.transients:
+            if t.state == VehicleState.DESPAWNED and t.transit_time > 0:
+                self._transit_records.append((t.transit_time, t.total_distance))
+                self._transit_total_exited += 1
+
         self.transients = [t for t in self.transients if t.state != VehicleState.DESPAWNED]
         despawned = [vid for vid, v in self.vehicles.items()
                     if v.state == VehicleState.DESPAWNED and
@@ -396,6 +425,49 @@ class Simulation:
             self.stats.vehicles_by_type[vtype] = (
                 self.stats.vehicles_by_type.get(vtype, 0) + 1
             )
+
+        # ===== [ΜΕΤΡΙΚΕΣ ΠΡΟΒΛΗΜΑΤΟΣ] =====
+
+        # Μ1: Μέσος χρόνος διαδρομής - Διερχόμενοι (transit)
+        transit_records = getattr(self, '_transit_records', [])
+        if transit_records:
+            self.stats.avg_transit_time = sum(t for t, d in transit_records) / len(transit_records)
+        
+        # Μ2: Μέσος χρόνος διαδρομής - Κάτοικοι (residents)
+        all_resident_trips = []
+        for v in self.vehicles.values():
+            if v.vehicle_type == VehicleType.RESIDENT and v.completed_trip_times:
+                all_resident_trips.extend(v.completed_trip_times)
+        for r in self.residents:
+            if r.completed_trip_times:
+                all_resident_trips.extend(r.completed_trip_times)
+        # Αφαίρεση διπλότυπων (αν το όχημα είναι και στο self.vehicles και στο self.residents)
+        seen_trips = set()
+        unique_trips = []
+        for t in all_resident_trips:
+            key = (id(t), t[0], t[1])
+            if key not in seen_trips:
+                seen_trips.add(key)
+                unique_trips.append(t)
+        if unique_trips:
+            self.stats.avg_resident_time = sum(t for t, d in unique_trips) / len(unique_trips)
+
+        # Μ3: Μέσος χρόνος ανά μονάδα μήκους - Διερχόμενοι
+        transit_per_dist = [(t / d) for t, d in transit_records if d > 0]
+        if transit_per_dist:
+            self.stats.avg_transit_time_per_dist = sum(transit_per_dist) / len(transit_per_dist)
+
+        # Μ4: Μέσος χρόνος ανά μονάδα μήκους - Κάτοικοι
+        resident_per_dist = [(t / d) for t, d in unique_trips if d > 0]
+        if resident_per_dist:
+            self.stats.avg_resident_time_per_dist = sum(resident_per_dist) / len(resident_per_dist)
+
+        # Μ5: Συνολική διαφορά ροής - Διερχόμενοι (Είσοδοι - Έξοδοι)
+        total_entered = getattr(self, '_transit_total_entered', 0) + len(self.transients)
+        total_exited = getattr(self, '_transit_total_exited', 0)
+        self.stats.transit_entered = total_entered
+        self.stats.transit_exited = total_exited
+        self.stats.transit_flow_diff = total_entered - total_exited
 
     def run(self, ticks: int = 1000, real_time: bool = False,
             tick_delay: float = 0.0):

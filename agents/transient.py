@@ -27,6 +27,9 @@ class TransientVehicle(BaseVehicle):
         super().__init__(world, VehicleType.TRANSIENT, pathfinder, rng)
         self.entry_point: Optional[Tuple[int, int]] = None  # Σημείο Εισόδου
         self.exit_point: Optional[Tuple[int, int]] = None   # Σημείο Εξόδου
+        self.spawn_tick: int = 0                             # [ΜΕΤΡΙΚΕΣ] Πότε μπήκε στον χάρτη
+        self.despawn_tick: int = 0                           # [ΜΕΤΡΙΚΕΣ] Πότε βγήκε από τον χάρτη
+        self.transit_time: int = 0                           # [ΜΕΤΡΙΚΕΣ] Χρόνος Εξόδου - Χρόνος Εισόδου
 
     def decide_action(self, current_tick: int, current_hour: int):
         """
@@ -57,6 +60,7 @@ class TransientVehicle(BaseVehicle):
             if self.spawn(entry):
                 self.entry_point = entry
                 self.origin = entry
+                self.spawn_tick = getattr(self, '_current_tick', 0)  # [ΜΕΤΡΙΚΕΣ]
                 # Μόλις μπει, διαλέγει αμέσως από ποια έξοδο θα βγει
                 self._select_exit_point()
                 if self.exit_point:
@@ -93,5 +97,8 @@ class TransientVehicle(BaseVehicle):
 
     def on_arrival(self):
         """Καλείται όταν το όχημα φτάσει στην έξοδο - Εξαφανίζεται (Despawn) από τον χάρτη."""
+        # [ΜΕΤΡΙΚΕΣ] Καταγραφή χρόνου εξόδου
+        self.despawn_tick = getattr(self, '_current_tick', 0)
+        self.transit_time = self.despawn_tick - self.spawn_tick
         self.despawn()
         self.state = VehicleState.DESPAWNED
