@@ -203,6 +203,12 @@ class BaseVehicle(ABC):
                             # Η έξοδος είναι μπλοκαρισμένη! Φρενάρει ΠΡΙΝ μπει στη διασταύρωση.
                             break
 
+                # [ΦΑΣΗ 6] Έλεγχος Φαναριού
+                # Αν πάμε να μπούμε σε διασταύρωση με κόκκινο, σταματάμε
+                if self.position and hasattr(self, '_traffic_lights') and self._traffic_lights:
+                    if not self._traffic_lights.can_pass(self.position, next_pos):
+                        break  # Κόκκινο φανάρι!
+
                 if not next_cell.is_occupied:
                     # Αν το επόμενο κελί είναι άδειο, προχωράει
                     if self.position:

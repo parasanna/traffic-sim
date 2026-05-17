@@ -19,6 +19,7 @@ from agents.transient import TransientVehicle
 from agents.food_truck import FoodTruck
 from agents.garbage_truck import GarbageTruck
 from events import WeatherSystem, EventManager
+from traffic_lights import TrafficLightSystem
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] %(message)s')
 logger = logging.getLogger(__name__)
@@ -132,11 +133,20 @@ class Simulation:
         self.weather = WeatherSystem(self.world, self.rng)
         self.event_manager = EventManager(self.world, self.rng, simulation=self)
 
+        # 5b. [ΦΑΣΗ 6] Σύστημα Φαναριών
+        self.traffic_lights = TrafficLightSystem(self.world, cycle_duration=10)
+        self.traffic_lights.detect_intersections()
+
         # 6. Δημιουργία Οχημάτων
         self._create_residents()
         self._create_service_fleets()
 
         self.is_initialized = True
+
+        # 7. Σύνδεση φαναριών με τα οχήματα
+        for vehicle in self.vehicles.values():
+            vehicle._traffic_lights = self.traffic_lights
+
         logger.info(f"Simulation initialized: {self.world}")
         logger.info(f"  Residents: {len(self.residents)}")
         logger.info(f"  Food trucks: {len(self.food_trucks)}")
@@ -194,6 +204,10 @@ class Simulation:
 
         # 2. Εφαρμογή επιπτώσεων καιρού (π.χ. μείωση ταχύτητας στα οχήματα)
         self._apply_weather_effects()
+
+        # 2b. [ΦΑΣΗ 6] Ενημέρωση Φαναριών
+        if hasattr(self, 'traffic_lights'):
+            self.traffic_lights.tick()
 
         # 3. Σπορά διερχόμενης κίνησης (Transient Traffic) βάσει της πιθανότητας της Ζώνης (zone probability)
         self._manage_transient_traffic()
@@ -329,6 +343,8 @@ class Simulation:
                     if t.spawn_at_entry():
                         self.transients.append(t)
                         self.vehicles[t.vehicle_id] = t
+                        if hasattr(self, 'traffic_lights'):
+                            t._traffic_lights = self.traffic_lights
                         active_transients += 1
 
     def _check_random_events(self):
