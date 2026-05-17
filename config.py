@@ -12,8 +12,8 @@ from typing import Dict, List, Tuple
 @dataclass
 class WorldConfig:
     """Διαστάσεις του 'Grid World' και γενικές παράμετροι (World parameters)."""
-    grid_rows: int = 100         # GR - Αριθμός γραμμών του πλέγματος
-    grid_cols: int = 140         # GC - Αριθμός στηλών του πλέγματος
+    grid_rows: int = 200         # GR - Αριθμός γραμμών του πλέγματος
+    grid_cols: int = 200         # GC - Αριθμός στηλών του πλέγματος
     ticks_per_hour: int = 20     # Πόσοι κύκλοι (ticks) προσομοίωσης αντιστοιχούν σε μία ώρα
     hours_per_day: int = 24      # Ώρες ανά ημέρα
 
