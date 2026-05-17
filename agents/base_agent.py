@@ -205,12 +205,12 @@ class BaseVehicle(ABC):
 
                 if not next_cell.is_occupied:
                     # Αν το επόμενο κελί είναι άδειο, προχωράει
-                if self.position:
-                    self.world.remove_vehicle(self.position[0], self.position[1])
-                self.world.place_vehicle(next_pos[0], next_pos[1], self.vehicle_id)
-                self.position = next_pos
-                self.path_index += 1
-                cells_moved += 1
+                    if self.position:
+                        self.world.remove_vehicle(self.position[0], self.position[1])
+                    self.world.place_vehicle(next_pos[0], next_pos[1], self.vehicle_id)
+                    self.position = next_pos
+                    self.path_index += 1
+                    cells_moved += 1
             else:
                 # Αν βρει μπροστά του άλλο όχημα (Μποτιλιάρισμα/Εμπόδιο)
                 # Δοκιμάζει Δυναμικό Προσπέρασμα (Overtaking)
