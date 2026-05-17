@@ -138,8 +138,12 @@ class Pathfinder:
                         # Επιτρέπεται η κίνηση μόνο προς τη σωστή κατεύθυνση της λωρίδας
                         continue
 
-                # Υπολογισμός κόστους κίνησης (1 κελί = 1 μονάδα κόστους)
+                # Υπολογισμός κόστους κίνησης (Congestion-Aware)
+                # Βασικό κόστος: 1 κελί = 1 μονάδα
+                # Ποινή συνωστισμού: +3 αν το κελί είναι ήδη κατειλημμένο από άλλο όχημα
                 move_cost = 1.0
+                if neighbor_cell.is_occupied:
+                    move_cost += 3.0  # Ο δρόμος με κίνηση κοστίζει 4x παραπάνω
                 tentative_g = current.g + move_cost
 
                 if neighbor_pos in g_scores and tentative_g >= g_scores[neighbor_pos]:
