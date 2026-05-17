@@ -48,6 +48,12 @@ class SimulationStats:
     transit_entered: int = 0                # Πόσοι μπήκαν
     transit_exited: int = 0                 # Πόσοι βγήκαν
 
+    # Δευτερεύοντες υπολογισμοί σε δευτερόλεπτα (1 tick = 3.0 δευτερόλεπτα)
+    avg_transit_time_sec: float = 0.0
+    avg_resident_time_sec: float = 0.0
+    avg_transit_time_per_dist_sec: float = 0.0
+    avg_resident_time_per_dist_sec: float = 0.0
+
     def to_dict(self) -> dict:
         return {
             'total_ticks': self.total_ticks,
@@ -59,11 +65,16 @@ class SimulationStats:
             'food_delivered': round(self.food_delivered, 1),
             'pollution_collected': round(self.pollution_collected, 1),
             'vehicles_by_type': self.vehicles_by_type,
-            # Μετρικές Προβλήματος
+            # Μετρικές Προβλήματος (Ticks)
             'avg_transit_time': round(self.avg_transit_time, 2),
             'avg_resident_time': round(self.avg_resident_time, 2),
             'avg_transit_time_per_dist': round(self.avg_transit_time_per_dist, 2),
             'avg_resident_time_per_dist': round(self.avg_resident_time_per_dist, 2),
+            # Μετρικές Προβλήματος (Δευτερόλεπτα - 1 tick = 3.0s)
+            'avg_transit_time_sec': round(self.avg_transit_time_sec, 2),
+            'avg_resident_time_sec': round(self.avg_resident_time_sec, 2),
+            'avg_transit_time_per_dist_sec': round(self.avg_transit_time_per_dist_sec, 2),
+            'avg_resident_time_per_dist_sec': round(self.avg_resident_time_per_dist_sec, 2),
             'transit_flow_diff': self.transit_flow_diff,
             'transit_entered': self.transit_entered,
             'transit_exited': self.transit_exited,
@@ -461,6 +472,12 @@ class Simulation:
         resident_per_dist = [(t / d) for t, d in unique_trips if d > 0]
         if resident_per_dist:
             self.stats.avg_resident_time_per_dist = sum(resident_per_dist) / len(resident_per_dist)
+
+        # Υπολογισμός τιμών σε δευτερόλεπτα (1 tick = 3.0 seconds)
+        self.stats.avg_transit_time_sec = self.stats.avg_transit_time * 3.0
+        self.stats.avg_resident_time_sec = self.stats.avg_resident_time * 3.0
+        self.stats.avg_transit_time_per_dist_sec = self.stats.avg_transit_time_per_dist * 3.0
+        self.stats.avg_resident_time_per_dist_sec = self.stats.avg_resident_time_per_dist * 3.0
 
         # Μ5: Συνολική διαφορά ροής - Διερχόμενοι (Είσοδοι - Έξοδοι)
         total_entered = getattr(self, '_transit_total_entered', 0) + len(self.transients)
