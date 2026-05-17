@@ -105,12 +105,77 @@ class TrafficLightSystem:
 
         logger.info(f"Φανάρια: Εντοπίστηκαν {len(self.traffic_lights)} διασταυρώσεις")
 
+    def _get_queues(self, light: TrafficLight) -> Tuple[int, int]:
+        """Υπολογίζει το μέγεθος της ουράς (κατειλημμένα κελιά) σε οριζόντια και κάθετη κατεύθυνση."""
+        h_queue = 0
+        v_queue = 0
+        
+        # Για κάθε κελί της διασταύρωσης, κοιτάζουμε προς τις 4 κατευθύνσεις (έως 4 κελιά απόσταση)
+        for r, c in light.cells:
+            # Οριζόντια (Αριστερά/Δεξιά)
+            for dc in [-1, -2, -3, -4]:
+                cell = self.world.get_cell(r, c + dc)
+                if cell and cell.cell_type == CellType.ROAD:
+                    if cell.is_occupied:
+                        h_queue += 1
+                else:
+                    break
+            for dc in [1, 2, 3, 4]:
+                cell = self.world.get_cell(r, c + dc)
+                if cell and cell.cell_type == CellType.ROAD:
+                    if cell.is_occupied:
+                        h_queue += 1
+                else:
+                    break
+            # Κάθετα (Πάνω/Κάτω)
+            for dr in [-1, -2, -3, -4]:
+                cell = self.world.get_cell(r + dr, c)
+                if cell and cell.cell_type == CellType.ROAD:
+                    if cell.is_occupied:
+                        v_queue += 1
+                else:
+                    break
+            for dr in [1, 2, 3, 4]:
+                cell = self.world.get_cell(r + dr, c)
+                if cell and cell.cell_type == CellType.ROAD:
+                    if cell.is_occupied:
+                        v_queue += 1
+                else:
+                    break
+        return h_queue, v_queue
+
     def tick(self):
-        """Ενημέρωση φαναριών σε κάθε tick. Αλλάζει φάση μετά από cycle_duration ticks."""
+        """
+        Ενημέρωση φαναριών με Προσαρμοστικό (Adaptive) Έλεγχο Ουρών.
+        Ανιχνεύει τον φόρτο σε κάθε κατεύθυνση και παρατείνει ή συντομεύει τον χρόνο πρασίνου.
+        """
         for light in self.traffic_lights.values():
             light.ticks_in_phase += 1
-            if light.ticks_in_phase >= self.cycle_duration:
-                light.toggle()
+            
+            # Υπολογισμός ουρών σε οριζόντια και κάθετη κατεύθυνση
+            h_q, v_q = self._get_queues(light)
+            
+            # Προσαρμοστικός (Adaptive) Έλεγχος
+            if light.phase == LightPhase.HORIZONTAL_GREEN:
+                # 1. Πρόωρος τερματισμός αν δεν υπάρχει κίνηση οριζόντια αλλά υπάρχει κάθετα
+                if h_q == 0 and v_q > 0 and light.ticks_in_phase >= 5:
+                    light.toggle()
+                # 2. Παράταση πρασίνου (έως 20 ticks) αν υπάρχει μεγαλύτερη ουρά οριζόντια
+                elif h_q > v_q and light.ticks_in_phase < 20:
+                    continue  # Κρατάμε το πράσινο!
+                # 3. Κανονική εναλλαγή
+                elif light.ticks_in_phase >= self.cycle_duration:
+                    light.toggle()
+            else:  # VERTICAL_GREEN
+                # 1. Πρόωρος τερματισμός αν δεν υπάρχει κίνηση κάθετα αλλά υπάρχει οριζόντια
+                if v_q == 0 and h_q > 0 and light.ticks_in_phase >= 5:
+                    light.toggle()
+                # 2. Παράταση πρασίνου (έως 20 ticks) αν υπάρχει μεγαλύτερη ουρά κάθετα
+                elif v_q > h_q and light.ticks_in_phase < 20:
+                    continue  # Κρατάμε το πράσινο!
+                # 3. Κανονική εναλλαγή
+                elif light.ticks_in_phase >= self.cycle_duration:
+                    light.toggle()
 
     def can_pass(self, vehicle_pos: Tuple[int, int], 
                  next_pos: Tuple[int, int]) -> bool:

@@ -9,11 +9,11 @@ config = SimulationConfig()
 sim = Simulation(config)
 sim.initialize()
 
-print("Running benchmark for 2000 ticks on branch:", os.popen("git branch --show-current").read().strip())
+print("Running benchmark for 5000 ticks on branch:", os.popen("git branch --show-current").read().strip())
 start_time = time.time()
-for i in range(2000):
+for i in range(5000):
     sim.tick()
-    if i % 500 == 0:
+    if i % 1000 == 0:
         print(f"Tick {i}...")
 
 stats = sim.stats.to_dict()

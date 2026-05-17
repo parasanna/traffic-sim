@@ -116,8 +116,8 @@ class TrafficConfig:
     zones: List[TrafficZone] = field(default_factory=lambda: [
         TrafficZone( # 1η Ζώνη: 06:00 - 09:00
             zone_id=1, start_hour=6, end_hour=9,
-            transient_probability=0.15,
-            internal_probability=0.15,
+            transient_probability=0.08,
+            internal_probability=0.08,
             transitions={
                 "Res->Off(W)": 0.05, "Res->Mar(W)": 0.05,
                 "Res->Lei(W)": 0.02, "Res->Oth(W)": 0.03,
@@ -125,8 +125,8 @@ class TrafficConfig:
         ),
         TrafficZone( # 2η Ζώνη: 09:00 - 12:00
             zone_id=2, start_hour=9, end_hour=12,
-            transient_probability=0.20,
-            internal_probability=0.20,
+            transient_probability=0.10,
+            internal_probability=0.10,
             transitions={
                 "Res->Mar(F)": 0.10, "Res->Oth(O)": 0.04,
                 "Off->Oth(O)": 0.06,
@@ -134,8 +134,8 @@ class TrafficConfig:
         ),
         TrafficZone( # 3η Ζώνη: 12:00 - 15:00
             zone_id=3, start_hour=12, end_hour=15,
-            transient_probability=0.15,
-            internal_probability=0.15,
+            transient_probability=0.08,
+            internal_probability=0.08,
             transitions={
                 "Res->Mar(F)": 0.07, "Res->Oth(O)": 0.03,
                 "Off->Oth(O)": 0.05,
@@ -143,8 +143,8 @@ class TrafficConfig:
         ),
         TrafficZone( # 4η Ζώνη: 15:00 - 18:00
             zone_id=4, start_hour=15, end_hour=18,
-            transient_probability=0.15,
-            internal_probability=0.15,
+            transient_probability=0.08,
+            internal_probability=0.08,
             transitions={
                 "Res->Mar(F)": 0.03, "Off->Oth(O)": 0.05,
                 "Mar->Oth(O)": 0.05, "Lei->Oth(O)": 0.02,
@@ -152,8 +152,8 @@ class TrafficConfig:
         ),
         TrafficZone( # 5η Ζώνη: 18:00 - 21:00
             zone_id=5, start_hour=18, end_hour=21,
-            transient_probability=0.12,
-            internal_probability=0.12,
+            transient_probability=0.07,
+            internal_probability=0.07,
             transitions={
                 "Res->Oth(O)": 0.02, "Res->Lei(L)": 0.02,
                 "Off->Lei(L)": 0.02, "Mar->Lei(L)": 0.03,
@@ -162,8 +162,8 @@ class TrafficConfig:
         ),
         TrafficZone( # 6η Ζώνη: 21:00 - 24:00
             zone_id=6, start_hour=21, end_hour=24,
-            transient_probability=0.10,
-            internal_probability=0.10,
+            transient_probability=0.06,
+            internal_probability=0.06,
             transitions={
                 "Off->Res(S)": 0.05, "Mar->Res(S)": 0.02,
                 "Lei->Res(S)": 0.02, "Oth->Res(S)": 0.01,
@@ -171,8 +171,8 @@ class TrafficConfig:
         ),
         TrafficZone( # 7η Ζώνη: 00:00 - 03:00
             zone_id=7, start_hour=0, end_hour=3,
-            transient_probability=0.08,
-            internal_probability=0.08,
+            transient_probability=0.05,
+            internal_probability=0.05,
             transitions={
                 "Off->Res(S)": 0.03, "Lei->Res(S)": 0.03,
                 "Oth->Res(S)": 0.02,
@@ -180,8 +180,8 @@ class TrafficConfig:
         ),
         TrafficZone( # 8η Ζώνη: 03:00 - 06:00
             zone_id=8, start_hour=3, end_hour=6,
-            transient_probability=0.05,
-            internal_probability=0.05,
+            transient_probability=0.03,
+            internal_probability=0.03,
             transitions={
                 "Lei->Res(S)": 0.03, "Oth->Res(S)": 0.02,
             }
