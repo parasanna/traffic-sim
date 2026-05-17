@@ -6,7 +6,7 @@
 """
 import heapq
 from typing import List, Tuple, Optional, Set, Dict, Callable
-from world import GridWorld, CellType, Direction, Cell
+from world import GridWorld, CellType, Direction, Cell, RoadType
 
 
 def manhattan_distance(a: Tuple[int, int], b: Tuple[int, int]) -> int:
@@ -144,6 +144,14 @@ class Pathfinder:
                 move_cost = 1.0
                 if neighbor_cell.is_occupied:
                     move_cost += 3.0  # Ο δρόμος με κίνηση κοστίζει 4x παραπάνω
+
+                # [ΒΕΛΤΙΣΤΟΠΟΙΗΣΗ] Ποινή δρομολόγησης στους μονόδρομους R3 (Routing Weight Penalty)
+                # Τα οχήματα προτιμούν R1 & R2 λεωφόρους και εισέρχονται σε R3 μόνο αν είναι απαραίτητο
+                if neighbor_cell.road_id is not None:
+                    road = self.world.roads.get(neighbor_cell.road_id)
+                    if road and road.road_type == RoadType.R3:
+                        move_cost += 15.0  # Προσθήκη ποινής +15.0
+
                 tentative_g = current.g + move_cost
 
                 if neighbor_pos in g_scores and tentative_g >= g_scores[neighbor_pos]:
