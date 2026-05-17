@@ -103,7 +103,12 @@ class EventManager:
                               VehicleState.PARKED, VehicleState.DESPAWNED):
             return False
 
-        if self.rng.random() < self.config.breakdown_probability:
+        # ΦΑΣΗ 3: Δυναμική Πιθανότητα Βλάβης (Fatigue Factor)
+        # Όσο πιο πολύ έχει ταξιδέψει, τόσο αυξάνεται η πιθανότητα!
+        fatigue_factor = 1.0 + (vehicle.total_distance / 2000.0)
+        actual_prob = self.config.breakdown_probability * fatigue_factor
+
+        if self.rng.random() < actual_prob:
             duration = self.config.breakdown_duration
 
             # Εάν είναι όχημα εξυπηρέτησης (Φορτηγό Φαγητού / Απορριμματοφόρο) και είναι σε τετράγωνο
