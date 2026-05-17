@@ -211,8 +211,23 @@ class TrafficLightSystem:
                                 self._trigger_i2i_diversion(next_cell.road_id)
                                 return False  # Μην εισέρχεσαι!
 
-        # Αν η επόμενη θέση δεν έχει φανάρι, πέρνα ελεύθερα
+        # [Layer 4: Emergency Intersection Flushing]
+        # Αν υπάρχει κάποιο όχημα εγκλωβισμένο μέσα σε αυτή τη διασταύρωση για >5 ticks,
+        # κλείνουμε όλες τις εισόδους (ΚΟΚΚΙΝΟ) για νέα οχήματα, ώστε να αδειάσει το κουτί!
         light_id = self._cell_to_light.get(next_pos)
+        if light_id is not None:
+            light = self.traffic_lights[light_id]
+            if hasattr(self, 'simulation') and self.simulation:
+                for v in self.simulation.vehicles.values():
+                    if v.position and v.position in light.cells:
+                        if v.ticks_waiting > 5:
+                            # Αν το όχημα που ζητάει να περάσει ΔΕΝ είναι ήδη μέσα στη διασταύρωση,
+                            # τότε του απαγορεύουμε την είσοδο (ανάβει Emergency RED)
+                            if vehicle_pos not in light.cells:
+                                logger.warning(f"[Emergency Flush] Intersection {light.intersection_id} locked to new entries to flush stuck vehicle {v.vehicle_id}!")
+                                return False
+
+        # Αν η επόμενη θέση δεν έχει φανάρι, πέρνα ελεύθερα
         if light_id is None:
             return True
 

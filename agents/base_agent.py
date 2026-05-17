@@ -208,6 +208,37 @@ class BaseVehicle(ABC):
                                 self._start_new_episode()
                             break
 
+        # [V2V CHAIN REROUTING]
+        # Αν κάποιο όχημα μπροστά μας (στα επόμενα 8 κελιά της διαδρομής μας) είναι κολλημένο για >5 ticks,
+        # επαναδρομολογούμαστε προληπτικά για να αποφύγουμε την ουρά!
+        if self.state == VehicleState.MOVING and self.current_path and self.destination:
+            stuck_vehicle_pos = None
+            remaining_path_segment = self.current_path[self.path_index + 1 : self.path_index + 9]
+            
+            if hasattr(self.pathfinder, 'simulation') and self.pathfinder.simulation:
+                pos_to_vehicle = {}
+                for v in self.pathfinder.simulation.vehicles.values():
+                    if v.position and v.vehicle_id != self.vehicle_id:
+                        pos_to_vehicle[v.position] = v
+                        
+                for pos in remaining_path_segment:
+                    v_ahead = pos_to_vehicle.get(pos)
+                    if v_ahead and v_ahead.ticks_waiting > 5:
+                        stuck_vehicle_pos = pos
+                        break
+                        
+            if stuck_vehicle_pos:
+                new_path = self.pathfinder.find_path(
+                    self.position, 
+                    self.destination, 
+                    avoid_positions={stuck_vehicle_pos}
+                )
+                if new_path:
+                    logger.warning(f"[V2V Chain Rerouting] Vehicle {self.vehicle_id} proactively avoided queue behind vehicle at {stuck_vehicle_pos}!")
+                    self.current_path = new_path
+                    self.path_index = 0
+                    self._start_new_episode()
+
         # 1. Αν έχει βλάβη, απλά περιμένει να λήξει ο χρόνος
         if self.state == VehicleState.BROKEN_DOWN:
             self.breakdown_timer -= 1
