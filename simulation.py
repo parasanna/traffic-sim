@@ -126,6 +126,7 @@ class Simulation:
 
         # 4. Ενεργοποίηση συστήματος εύρεσης διαδρομών (Pathfinder)
         self.pathfinder = Pathfinder(self.world)
+        self.pathfinder.simulation = self  # Φάση 4: Πρόσβαση στα οχήματα για το Smart GPS
 
         # 5. Ενεργοποίηση Καιρού και Γεγονότων
         self.weather = WeatherSystem(self.world, self.rng)

@@ -114,9 +114,18 @@ class Pathfinder:
                 if neighbor_cell.cell_type not in allowed_types:
                     continue
 
-                # Έλεγχος πληρότητας (αποφυγή τρακαρίσματος αν ζητηθεί)
-                if avoid_occupied and neighbor_cell.is_occupied:
-                    continue
+                # Έλεγχος πληρότητας και Κινδύνων (Smart GPS)
+                if neighbor_cell.is_occupied:
+                    is_hazard = False
+                    if hasattr(self, 'simulation') and self.simulation:
+                        from agents.base_agent import VehicleState
+                        occupying_vehicle = self.simulation.vehicles.get(neighbor_cell.vehicle_id)
+                        if occupying_vehicle and occupying_vehicle.state in (VehicleState.BROKEN_DOWN, VehicleState.IN_ACCIDENT):
+                            is_hazard = True
+                            
+                    # Αποφεύγουμε αν avoid_occupied=True Ή αν το κελί έχει χαλασμένο όχημα (is_hazard)
+                    if avoid_occupied or is_hazard:
+                        continue
 
                 # Απόλυτη αποφυγή συγκεκριμένων κελιών (π.χ. βλάβες V2V)
                 if avoid_positions and neighbor_pos in avoid_positions:
