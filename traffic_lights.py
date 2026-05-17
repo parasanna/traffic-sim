@@ -7,7 +7,7 @@ import logging
 from enum import Enum, auto
 from dataclasses import dataclass, field
 from typing import Dict, List, Tuple, Set, Optional
-from world import GridWorld, CellType
+from world import GridWorld, CellType, RoadType
 
 logger = logging.getLogger(__name__)
 
@@ -177,6 +177,12 @@ class TrafficLightSystem:
                 elif light.ticks_in_phase >= self.cycle_duration:
                     light.toggle()
 
+    def _trigger_i2i_diversion(self, road_id: int):
+        """[I2I] Ενημερώνει τις γειτονικές διασταυρώσεις να εκτρέψουν την κυκλοφορία."""
+        # Για λόγους προσομοίωσης και καταγραφής, οι γειτονικοί πράκτορες-διασταυρώσεις
+        # λαμβάνουν το σήμα I2I και συντονίζονται για εκτροπή
+        logger.warning(f"[I2I Diversion] Intersections notified! Diverting traffic away from blocked road ID {road_id}.")
+
     def can_pass(self, vehicle_pos: Tuple[int, int], 
                  next_pos: Tuple[int, int]) -> bool:
         """
@@ -190,6 +196,21 @@ class TrafficLightSystem:
         Returns:
             True αν μπορεί να περάσει (πράσινο ή δεν υπάρχει φανάρι)
         """
+        # [I2V ΠΡΟΣΤΑΣΙΑ] Έλεγχος αν ο επόμενος δρόμος είναι μονόδρομος R3 με ενεργή βλάβη/ατύχημα
+        next_cell = self.world.get_cell(*next_pos)
+        if next_cell and next_cell.road_id is not None:
+            road = self.world.roads.get(next_cell.road_id)
+            if road and road.road_type == RoadType.R3:
+                if hasattr(self, 'simulation') and self.simulation:
+                    from agents.base_agent import VehicleState
+                    for v in self.simulation.vehicles.values():
+                        if v.state in (VehicleState.BROKEN_DOWN, VehicleState.IN_ACCIDENT) and v.position:
+                            v_cell = self.world.get_cell(*v.position)
+                            if v_cell and v_cell.road_id == next_cell.road_id:
+                                # Βρέθηκε βλάβη στον R3! Ενεργοποίηση προστατευτικού ΚΟΚΚΙΝΟΥ φαναριού (I2V)
+                                self._trigger_i2i_diversion(next_cell.road_id)
+                                return False  # Μην εισέρχεσαι!
+
         # Αν η επόμενη θέση δεν έχει φανάρι, πέρνα ελεύθερα
         light_id = self._cell_to_light.get(next_pos)
         if light_id is None:

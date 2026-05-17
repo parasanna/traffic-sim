@@ -3,12 +3,15 @@
 Εδώ ορίζεται η βασική συμπεριφορά (κίνηση, βλάβες, ατυχήματα) που κληρονομούν όλοι οι τύποι οχημάτων.
 """
 import random
+import logging
 from abc import ABC, abstractmethod
 from enum import Enum, auto
 from dataclasses import dataclass, field
 from typing import Optional, Tuple, List, Dict
-from world import GridWorld, CellType, Direction, BuildingBlock, BlockCategory
+from world import GridWorld, CellType, Direction, BuildingBlock, BlockCategory, RoadType
 from pathfinding import Pathfinder
+
+logger = logging.getLogger(__name__)
 
 
 class VehicleState(Enum):
@@ -163,6 +166,48 @@ class BaseVehicle(ABC):
 
     def tick_move(self):
         """Εκτελεί την κίνηση του οχήματος για το τρέχον Tick."""
+        # [V2V ΕΓΚΑΙΡΗ ΠΡΟΕΙΔΟΠΟΙΗΣΗ] Proactive Rerouting
+        if self.state == VehicleState.MOVING and self.current_path and self.destination:
+            # 1. Εντοπισμός μονόδρομων R3 με ενεργή βλάβη/ατύχημα
+            blocked_r3_roads = {}
+            if hasattr(self.pathfinder, 'simulation') and self.pathfinder.simulation:
+                for v in self.pathfinder.simulation.vehicles.values():
+                    if v.state in (VehicleState.BROKEN_DOWN, VehicleState.IN_ACCIDENT) and v.position:
+                        v_cell = self.world.get_cell(*v.position)
+                        if v_cell and v_cell.road_id is not None:
+                            road = self.world.roads.get(v_cell.road_id)
+                            if road and road.road_type == RoadType.R3:
+                                # Καταγραφή του R3 δρόμου και των κελιών του
+                                cells_to_avoid = set()
+                                for seg in road.segments:
+                                    cells_to_avoid.update(seg.cells)
+                                blocked_r3_roads[v_cell.road_id] = cells_to_avoid
+
+            # 2. Έλεγχος αν η υπολειπόμενη διαδρομή περιέχει κάποιον από τους μπλοκαρισμένους μονόδρομους R3
+            # Αλλά ΜΟΝΟ αν το όχημα δεν έχει εισέλθει ακόμα σε αυτόν τον μονόδρομο!
+            curr_cell = self.world.get_cell(*self.position) if self.position else None
+            curr_road_id = curr_cell.road_id if curr_cell else None
+
+            remaining_path = self.current_path[self.path_index:]
+            for blocked_road_id, cells_to_avoid in blocked_r3_roads.items():
+                if curr_road_id != blocked_road_id:  # Δεν έχουμε μπει ακόμα στον μπλοκαρισμένο R3
+                    # Ελέγχουμε αν κάποιο από τα επόμενα κελιά μας είναι σε αυτόν τον R3
+                    for pos in remaining_path:
+                        path_cell = self.world.get_cell(*pos)
+                        if path_cell and path_cell.road_id == blocked_road_id:
+                            # Επαναδρομολόγηση για αποφυγή ολόκληρου του μπλοκαρισμένου R3 δρόμου
+                            new_path = self.pathfinder.find_path(
+                                self.position, 
+                                self.destination, 
+                                avoid_positions=cells_to_avoid
+                            )
+                            if new_path:
+                                logger.warning(f"[V2V Proactive Rerouting] Vehicle {self.vehicle_id} proactively avoided blocked R3 road {blocked_road_id}!")
+                                self.current_path = new_path
+                                self.path_index = 0
+                                self._start_new_episode()
+                            break
+
         # 1. Αν έχει βλάβη, απλά περιμένει να λήξει ο χρόνος
         if self.state == VehicleState.BROKEN_DOWN:
             self.breakdown_timer -= 1

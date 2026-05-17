@@ -163,6 +163,7 @@ class Simulation:
 
         # 5b. [ΦΑΣΗ 6] Σύστημα Φαναριών
         self.traffic_lights = TrafficLightSystem(self.world, cycle_duration=10)
+        self.traffic_lights.simulation = self
         self.traffic_lights.detect_intersections()
 
         # 6. Δημιουργία Οχημάτων
