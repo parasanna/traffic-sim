@@ -188,8 +188,23 @@ class BaseVehicle(ABC):
             next_pos = self.current_path[self.path_index + 1]
             next_cell = self.world.get_cell(next_pos[0], next_pos[1])
 
-            if next_cell and not next_cell.is_occupied:
-                # Αν το επόμενο κελί είναι άδειο, προχωράει
+            if next_cell:
+                # [ΦΑΣΗ 5] Don't Block the Box
+                # Αν είμαστε εκτός διασταύρωσης και πάμε να μπούμε σε μία, ελέγχουμε αν υπάρχει ελεύθερη έξοδος
+                if self.position and not self.world.is_intersection(*self.position) and self.world.is_intersection(*next_pos):
+                    exit_pos = None
+                    for i in range(self.path_index + 1, len(self.current_path)):
+                        if not self.world.is_intersection(*self.current_path[i]):
+                            exit_pos = self.current_path[i]
+                            break
+                    if exit_pos:
+                        exit_cell = self.world.get_cell(*exit_pos)
+                        if exit_cell and exit_cell.is_occupied:
+                            # Η έξοδος είναι μπλοκαρισμένη! Φρενάρει ΠΡΙΝ μπει στη διασταύρωση.
+                            break
+
+                if not next_cell.is_occupied:
+                    # Αν το επόμενο κελί είναι άδειο, προχωράει
                 if self.position:
                     self.world.remove_vehicle(self.position[0], self.position[1])
                 self.world.place_vehicle(next_pos[0], next_pos[1], self.vehicle_id)

@@ -227,6 +227,29 @@ class GridWorld:
         """Επιστρέφει τη γειτονιά Moore (Και τα 8 γειτονικά κελιά, μαζί με τα διαγώνια)."""
         return self.get_neighbors(row, col, include_diagonal=True)
 
+    def is_intersection(self, r: int, c: int) -> bool:
+        """Ελέγχει αν ένα κελί είναι διασταύρωση (έχει δρόμους και στους δύο άξονες)."""
+        cell = self.get_cell(r, c)
+        if not cell or cell.cell_type != CellType.ROAD:
+            return False
+            
+        has_v_road = False
+        has_h_road = False
+        
+        # Έλεγχος Κάθετου άξονα (Πάνω/Κάτω)
+        up = self.get_cell(r - 1, c)
+        if up and up.cell_type == CellType.ROAD: has_v_road = True
+        down = self.get_cell(r + 1, c)
+        if down and down.cell_type == CellType.ROAD: has_v_road = True
+        
+        # Έλεγχος Οριζόντιου άξονα (Αριστερά/Δεξιά)
+        left = self.get_cell(r, c - 1)
+        if left and left.cell_type == CellType.ROAD: has_h_road = True
+        right = self.get_cell(r, c + 1)
+        if right and right.cell_type == CellType.ROAD: has_h_road = True
+        
+        return has_v_road and has_h_road
+
     def set_cell_type(self, row: int, col: int, cell_type: CellType):
         """Αλλάζει τον τύπο ενός κελιού."""
         if self.is_valid(row, col):
