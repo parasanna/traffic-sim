@@ -172,7 +172,7 @@ class Pathfinder:
         Βρίσκει διαδρομή με πιο "χαλαρούς" κανόνες (π.χ. δεν ελέγχει is_occupied),
         υποθέτοντας ότι τα σταματημένα οχήματα κάποια στιγμή θα μετακινηθούν.
         """
-        return self.find_path(start, goal, respect_lanes=True, avoid_occupied=False, avoid_positions=avoid_positions)
+        return self.find_path(start, goal, respect_lanes=False, avoid_occupied=False, avoid_positions=avoid_positions)
 
     def _reconstruct_path(self, node: PathNode) -> List[Tuple[int, int]]:
         """Ανακατασκευάζει τη διαδρομή από τον κόμβο-στόχο πίσω στην αφετηρία."""
